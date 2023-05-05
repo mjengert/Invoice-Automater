@@ -1,2 +1,2 @@
 # Invoice-Automater
-# Automates Data Inputting into Invoice Template 
+Automates Data Inputting into Invoice Template 
