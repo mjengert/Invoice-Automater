@@ -1,5 +1,6 @@
-import openpyxl, os, win32printing, win32api, shutil
-
+import openpyxl, os, shutil, tkinter
+from tkinter import *
+from tkinter import font as tkfont
 
 # gets the last invoice number from the last invoice made and makes a new one
 def new_invoice_num():
@@ -92,5 +93,3 @@ if __name__ == '__main__':
         else:
             print('Thank you for using the Invoice Maker!')
             Invoicemaker = False
-
-
