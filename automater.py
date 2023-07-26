@@ -21,7 +21,7 @@ def new_invoice_num():
 if __name__ == '__main__':
     Invoicemaker = True
     while Invoicemaker:
-        filename = 'Invoice Excel Docs'
+        filename = 'venv/Invoice Excel Docs'
         directory = os.path.abspath(filename)
         invoice_data = {}
         # looks at all previous invoices and stores important customer data

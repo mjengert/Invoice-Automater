@@ -42,6 +42,8 @@ InvoiceMaker.geometry("550x350")
 # Define a function for switching the frames
 # changes to data input page 1 or 2
 def change_to_input():
+    print(invoice_data)
+    print(len(invoice_data))
     first_n = first_name.get()
     last_n = last_name.get()
     name_list.append(first_n)
