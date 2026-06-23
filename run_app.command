@@ -16,7 +16,7 @@ else
 fi
 
 # Install missing packages quietly
-$PY -m pip install -q --require-virtualenv customtkinter rapidfuzz openpyxl pillow 2>/dev/null || \
-$PY -m pip install -q customtkinter rapidfuzz openpyxl pillow
+$PY -m pip install -q --require-virtualenv customtkinter rapidfuzz openpyxl pillow reportlab xlwings 2>/dev/null || \
+$PY -m pip install -q customtkinter rapidfuzz openpyxl pillow reportlab xlwings
 
 $PY gui_automater.py

@@ -7,11 +7,26 @@ import openpyxl
 from openpyxl.utils import get_column_letter, range_boundaries
 import customtkinter as ctk
 from rapidfuzz import process, fuzz
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.lib.units import inch
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.enums import TA_RIGHT, TA_CENTER
+from reportlab.platypus import (SimpleDocTemplate, Table, TableStyle,
+                                 Paragraph, Spacer, HRFlowable)
 
-BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
-DB_PATH   = os.path.join(BASE_DIR, "invoices.db")
-INV_DIR   = os.path.join(BASE_DIR, "Invoice Excel Docs")
-TEMPLATE  = os.path.join(BASE_DIR, "Invoice_template.xlsx")
+BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
+DB_PATH    = os.path.join(BASE_DIR, "invoices.db")
+INV_DIR    = os.path.join(BASE_DIR, "Invoice Excel Docs")
+TEMPLATE   = os.path.join(BASE_DIR, "Invoice_template.xlsx")
+EMAIL_TO   = "earlybird0648@gmail.com"
+
+COMPANY       = "Funky's Electrical"
+COMPANY_ADDR  = "5924 Ashton Woods Cir., Milton, FL 32570"
+COMPANY_PHONE = "(850) 207-1800"
+SALESPERSON   = "Gary Funkhouser"
+COMPANY_EMAIL = "funkyselectrical@gmail.com"
+LICENSE_NUM   = "EC13005709"
 
 # ─── Database ──────────────────────────────────────────────────────────────────
 
@@ -213,6 +228,152 @@ def normalize_address(raw):
     return raw
 
 
+# ─── PDF generation ────────────────────────────────────────────────────────────
+
+_BLUE  = colors.HexColor("#1a5276")
+_LGRAY = colors.HexColor("#f2f3f4")
+
+
+def _ps(name, **kw):
+    return ParagraphStyle(name, **kw)
+
+
+def generate_invoice_pdf(customer, job_name, line_items, inv_num):
+    """Generate a PDF invoice using reportlab. Returns the PDF file path."""
+    out = os.path.join(BASE_DIR, f"{customer['name']} #{inv_num}.pdf")
+    doc = SimpleDocTemplate(out, pagesize=letter,
+                            leftMargin=0.75*inch, rightMargin=0.75*inch,
+                            topMargin=0.75*inch, bottomMargin=0.75*inch)
+    W = letter[0] - 1.5*inch
+
+    today = date.today().strftime("%B %d, %Y")
+    total = sum(p for _, p in line_items)
+
+    # Header
+    hdr = Table([
+        [Paragraph(COMPANY,            _ps("co", fontSize=14, fontName="Helvetica-Bold", textColor=_BLUE)),
+         Paragraph(f"INVOICE #{inv_num}", _ps("in", fontSize=20, fontName="Helvetica-Bold", textColor=_BLUE, alignment=TA_RIGHT))],
+        [Paragraph(COMPANY_ADDR,       _ps("ca", fontSize=8,  textColor=colors.grey)),
+         Paragraph(today,              _ps("dt", fontSize=8,  textColor=colors.grey, alignment=TA_RIGHT))],
+        [Paragraph(COMPANY_PHONE,      _ps("cp", fontSize=8,  textColor=colors.grey)), ""],
+    ], colWidths=[W*0.55, W*0.45])
+    hdr.setStyle(TableStyle([("VALIGN",(0,0),(-1,-1),"TOP"), ("BOTTOMPADDING",(0,0),(-1,-1),2)]))
+
+    # Bill To / For
+    addr_html = (customer.get("address") or "").replace("\n", "<br/>")
+    bill = Table([
+        [Paragraph("BILL TO", _ps("bh", fontSize=9, fontName="Helvetica-Bold", textColor=colors.white)),
+         Paragraph("FOR",     _ps("fh", fontSize=9, fontName="Helvetica-Bold", textColor=colors.white))],
+        [Paragraph(customer["name"], _ps("cn", fontSize=10, fontName="Helvetica-Bold")),
+         Paragraph(job_name,         _ps("jn", fontSize=10, fontName="Helvetica-Bold"))],
+        [Paragraph(addr_html,        _ps("ad", fontSize=9)), ""],
+        [Paragraph(customer.get("phone") or "", _ps("ph", fontSize=9)), ""],
+    ], colWidths=[W*0.55, W*0.45])
+    bill.setStyle(TableStyle([
+        ("BACKGROUND",(0,0),(-1,0),_BLUE),
+        ("LEFTPADDING",(0,0),(-1,-1),6), ("RIGHTPADDING",(0,0),(-1,-1),6),
+        ("TOPPADDING",(0,0),(-1,0),4),   ("BOTTOMPADDING",(0,0),(-1,0),4),
+        ("TOPPADDING",(0,1),(-1,-1),3),  ("VALIGN",(0,0),(-1,-1),"TOP"),
+    ]))
+
+    # Salesperson / Terms
+    sp = Table([
+        [Paragraph("Salesperson",     _ps("sh", fontSize=9, fontName="Helvetica-Bold", textColor=colors.white)),
+         Paragraph("Payment Terms",   _ps("ph2",fontSize=9, fontName="Helvetica-Bold", textColor=colors.white))],
+        [Paragraph(SALESPERSON,       _ps("sv", fontSize=9)),
+         Paragraph("Due upon receipt",_ps("pv", fontSize=9))],
+    ], colWidths=[W*0.55, W*0.45])
+    sp.setStyle(TableStyle([
+        ("BACKGROUND",(0,0),(-1,0),_BLUE),
+        ("LEFTPADDING",(0,0),(-1,-1),6),
+        ("TOPPADDING",(0,0),(-1,0),4), ("BOTTOMPADDING",(0,0),(-1,0),4),
+        ("TOPPADDING",(0,1),(-1,-1),3),
+    ]))
+
+    # Line items
+    rows = [[Paragraph("Details", _ps("dh", fontSize=9, fontName="Helvetica-Bold", textColor=colors.white)),
+             Paragraph("Amount",  _ps("ah", fontSize=9, fontName="Helvetica-Bold", textColor=colors.white, alignment=TA_RIGHT))]]
+    for i, (detail, price) in enumerate(line_items):
+        rows.append([
+            Paragraph(detail,        _ps(f"d{i}", fontSize=9)),
+            Paragraph(f"${price:,.2f}", _ps(f"p{i}", fontSize=9, alignment=TA_RIGHT)),
+        ])
+    rows += [
+        ["", ""],
+        [Paragraph("SUBTOTAL", _ps("sub", fontSize=9, fontName="Helvetica-Bold")),
+         Paragraph(f"${total:,.2f}", _ps("sv2", fontSize=9, fontName="Helvetica-Bold", alignment=TA_RIGHT))],
+        [Paragraph("SALES TAX", _ps("tx", fontSize=9)),
+         Paragraph("N/A", _ps("txv", fontSize=9, alignment=TA_RIGHT))],
+        [Paragraph("TOTAL", _ps("tot", fontSize=11, fontName="Helvetica-Bold", textColor=_BLUE)),
+         Paragraph(f"${total:,.2f}", _ps("tv", fontSize=11, fontName="Helvetica-Bold", textColor=_BLUE, alignment=TA_RIGHT))],
+    ]
+    row_styles = [
+        ("BACKGROUND",(0,0),(-1,0),_BLUE),
+        ("LEFTPADDING",(0,0),(-1,-1),6), ("RIGHTPADDING",(0,0),(-1,-1),6),
+        ("TOPPADDING",(0,0),(-1,-1),4),  ("BOTTOMPADDING",(0,0),(-1,-1),4),
+        ("LINEBELOW",(0,-1),(-1,-1),1.5,_BLUE),
+        ("LINEABOVE",(0,-1),(-1,-1),0.5,colors.lightgrey),
+    ]
+    for i in range(len(line_items)):
+        if i % 2 == 0:
+            row_styles.append(("BACKGROUND",(0,i+1),(-1,i+1),_LGRAY))
+    items = Table(rows, colWidths=[W*0.72, W*0.28])
+    items.setStyle(TableStyle(row_styles))
+
+    # Footer
+    fs = _ps("ft", fontSize=7, textColor=colors.grey)
+    doc.build([
+        hdr,
+        HRFlowable(width="100%", thickness=2, color=_BLUE, spaceAfter=8),
+        bill, Spacer(1, 8), sp, Spacer(1, 10), items, Spacer(1, 16),
+        HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceAfter=4),
+        Paragraph(f"Make all checks payable to {COMPANY}", fs),
+        Paragraph(f"{SALESPERSON},  {COMPANY_PHONE},  {COMPANY_EMAIL}  |  License # {LICENSE_NUM}", fs),
+    ])
+    return out
+
+
+# ─── PDF via xlwings (Excel renders it) ────────────────────────────────────────
+
+def generate_pdf_from_xlsx(xlsx_path):
+    """Export xlsx to PDF using Excel's own renderer via xlwings."""
+    import xlwings as xw
+    pdf_path = xlsx_path.replace(".xlsx", ".pdf")
+    app = xw.App(visible=False)
+    try:
+        wb = app.books.open(os.path.abspath(xlsx_path))
+        wb.to_pdf(pdf_path)
+        wb.close()
+    finally:
+        app.quit()
+    return pdf_path
+
+
+# ─── Email via Mail.app ─────────────────────────────────────────────────────────
+
+def email_invoice(pdf_path, inv_num, customer_name):
+    """Attach PDF to a new Mail.app message and open it ready to send."""
+    abs_pdf = os.path.abspath(pdf_path)
+    subject = f"{customer_name} #{inv_num}"
+    result = subprocess.run(
+        [
+            "osascript",
+            "-e", 'tell application "Mail"',
+            "-e", (f'set msg to make new outgoing message with properties '
+                   f'{{subject:"{subject}", content:"", visible:true}}'),
+            "-e", "tell msg",
+            "-e", f'make new to recipient with properties {{address:"{EMAIL_TO}"}}',
+            "-e", f'make new attachment with properties {{file name:POSIX file "{abs_pdf}"}}',
+            "-e", "end tell",
+            "-e", "activate",
+            "-e", "end tell",
+        ],
+        capture_output=True, text=True, timeout=30,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or result.stdout.strip())
+
+
 # ─── Print via Excel ───────────────────────────────────────────────────────────
 
 def print_xlsx(xlsx_path):
@@ -267,6 +428,7 @@ class App(ctk.CTk):
         self.customers     = []
         self.customer      = None
         self.invoice_path  = None   # saved .xlsx path
+        self.invoice_data  = None   # dict for PDF generation
 
         self._frames = {}
         for Cls in (LoadingFrame, SearchFrame, NewCustomerFrame,
@@ -602,6 +764,8 @@ class ConfirmFrame(ctk.CTkFrame):
         customer, job_name, items, inv_num = self._data
         path = save_invoice(self.app.conn, customer, job_name, items, inv_num)
         self.app.invoice_path = path
+        self.app.invoice_data = {"customer": customer, "job_name": job_name,
+                                  "line_items": items, "inv_num": inv_num}
         self.app.customers = all_customers(self.app.conn)
         self.app.show("done")
 
@@ -626,10 +790,12 @@ class DoneFrame(ctk.CTkFrame):
         btns = ctk.CTkFrame(self, fg_color="transparent")
         btns.pack(pady=20)
 
-        ctk.CTkButton(btns, text="🖨  Print", width=160,
-                      command=self._print).pack(side="left", padx=10)
-        ctk.CTkButton(btns, text="📂  Open Excel", width=160, fg_color=GRAY,
-                      hover_color="#555", command=self._open).pack(side="left", padx=10)
+        ctk.CTkButton(btns, text="🖨  Print", width=150,
+                      command=self._print).pack(side="left", padx=8)
+        ctk.CTkButton(btns, text="📧  Email PDF", width=150,
+                      command=self._email).pack(side="left", padx=8)
+        ctk.CTkButton(btns, text="📂  Open Excel", width=150, fg_color=GRAY,
+                      hover_color="#555", command=self._open).pack(side="left", padx=8)
 
         ctk.CTkButton(self, text="New Invoice", width=160,
                       command=self._new).pack(pady=8)
@@ -648,12 +814,27 @@ class DoneFrame(ctk.CTkFrame):
         except Exception as e:
             self._status.configure(text=f"Print error: {e}", text_color=RED)
 
+    def _email(self):
+        if not self.app.invoice_path:
+            return
+        d = self.app.invoice_data
+        self._status.configure(text="Generating PDF via Excel…", text_color="gray")
+        self.update()
+        try:
+            pdf = generate_pdf_from_xlsx(self.app.invoice_path)
+            email_invoice(pdf, d["inv_num"], d["customer"]["name"])
+            self._status.configure(
+                text=f"Email opened for {EMAIL_TO}", text_color=GREEN)
+        except Exception as e:
+            self._status.configure(text=f"Email error: {e}", text_color=RED)
+
     def _open(self):
         if self.app.invoice_path:
             subprocess.run(["open", self.app.invoice_path])
 
     def _new(self):
         self.app.invoice_path = None
+        self.app.invoice_data = None
         self.app.show("search")
 
 
