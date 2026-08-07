@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Customers — Funky's Electrical{% endblock %}
+{% block page_title %}Customers{% endblock %}
+{% block page_actions %}
+  <a href="{{ url_for('customer_new_form') }}" class="btn btn-primary">+ New Customer</a>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:20px;">
+  <form method="get" action="{{ url_for('customers_list') }}" style="display:flex; gap:10px;">
+    <input type="search" name="q" value="{{ q }}" placeholder="Search by name, address, or phone…" style="max-width:420px;">
+    <button class="btn btn-secondary" type="submit">Search</button>
+    {% if q %}<a class="btn btn-ghost" href="{{ url_for('customers_list') }}">Clear</a>{% endif %}
+  </form>
+</div>
+
+<div class="card">
+  <div class="section-title">
+    {% if q %}Results for “{{ q }}”{% else %}All customers{% endif %}
+    <span style="color:var(--text-muted); font-weight:500; font-size:13px;">{{ rows|length }} shown</span>
+  </div>
+
+  {% if rows %}
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Address</th><th>Phone</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for c in rows %}
+      <tr class="row-link" onclick="window.location.href='{{ url_for('customer_detail', name=c.name) }}'">
+        <td>{{ c.name }}</td>
+        <td style="white-space:pre-line;">{{ c.address or '' }}</td>
+        <td>{{ c.phone or '' }}</td>
+        <td style="text-align:right">
+          <a class="btn btn-ghost btn-sm" href="{{ url_for('customer_edit_form', name=c.name) }}" onclick="event.stopPropagation()">Edit</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-ic">👥</div>
+    {% if q %}No customers match that search.{% else %}No customers yet — add the first one.{% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<div id="toast" class="status-banner" style="position:fixed; bottom:24px; right:24px; max-width:360px;"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showToast(msg, ok) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'status-banner show ' + (ok ? 'ok' : 'err');
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+</script>
+{% endblock %}

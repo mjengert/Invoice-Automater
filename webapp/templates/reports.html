@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Reports — Funky's Electrical{% endblock %}
+{% block page_title %}Reports{% endblock %}
+{% block page_actions %}
+  <a href="{{ url_for('monthly_log') }}" class="btn btn-ghost">Monthly Log</a>
+{% endblock %}
+
+{% block content %}
+<div class="card-grid">
+  <div class="card stat-card">
+    <div class="stat-label">All-time paid income</div>
+    <div class="stat-value">${{ "{:,.2f}".format(ge.total) }}</div>
+    <div class="stat-sub">from every Monthly Log entry</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">Generator (G)</div>
+    <div class="stat-value">${{ "{:,.2f}".format(ge.g_total) }}</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">Electrical (E)</div>
+    <div class="stat-value">${{ "{:,.2f}".format(ge.e_total) }}</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:24px">
+  <div class="section-title">Last 12 months</div>
+  {% set max_total = (series|map(attribute='total')|list)|max %}
+  <table>
+    <thead>
+      <tr>
+        <th>Month</th>
+        <th style="text-align:right">Total</th>
+        <th style="text-align:right">Generator</th>
+        <th style="text-align:right">Electrical</th>
+        <th style="width:38%">&nbsp;</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in series %}
+      <tr>
+        <td>{{ m.month_label }}</td>
+        <td style="text-align:right">${{ "{:,.2f}".format(m.total) }}</td>
+        <td style="text-align:right; color:var(--text-muted);">${{ "{:,.2f}".format(m.g_total) }}</td>
+        <td style="text-align:right; color:var(--text-muted);">${{ "{:,.2f}".format(m.e_total) }}</td>
+        <td>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:{{ (m.total / max_total * 100) if max_total else 0 }}%"></div>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <div class="section-title">Top customers</div>
+  <p style="color:var(--text-muted); font-size:13px; margin-top:-6px; margin-bottom:16px;">
+    Ranked by total invoiced, all time.
+  </p>
+  {% if top_customers %}
+  <table>
+    <thead>
+      <tr><th style="width:44px;">#</th><th>Customer</th><th style="text-align:right">Invoices</th><th style="text-align:right">Total</th></tr>
+    </thead>
+    <tbody>
+      {% for c in top_customers %}
+      <tr class="row-link" onclick="window.location.href='{{ url_for('customer_detail', name=c.customer) }}'">
+        <td style="color:var(--text-muted);">{{ loop.index }}</td>
+        <td>{{ c.customer }}</td>
+        <td style="text-align:right">{{ c.count }}</td>
+        <td style="text-align:right">${{ "{:,.2f}".format(c.total) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-ic">📊</div>
+    No invoices yet — top customers will show up here once you do.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Funky's Electrical{% endblock %}</title>
+<!-- Barlow Condensed — a bold, slightly industrial display face used for
+     branding/headings/nav/stat numbers (see --font-display in style.css),
+     paired with the existing system font for body/table/input text where
+     maximum legibility matters most. If this fails to load (no internet,
+     shop network hiccup) every element using it just falls back to the
+     system font already in the stack — nothing breaks. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+{% block head %}{% endblock %}
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" width="23" height="23" fill="currentColor" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 11-14h-7l1-6z"/></svg>
+      </div>
+      <div class="brand-text">
+        <div class="brand-name">Funky's Electrical</div>
+        <div class="brand-sub">Bookkeeping Dashboard</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <a class="nav-item {{ 'active' if active=='home' else '' }}" href="{{ url_for('home') }}">
+        <span class="nav-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9a1 1 0 0 0 1 1h3v-6h4v6h3a1 1 0 0 0 1-1v-9"/></svg></span> Home
+      </a>
+      <a class="nav-item {{ 'active' if active=='invoices' else '' }}" href="{{ url_for('invoices_list') }}">
+        <span class="nav-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l3 3v15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M9 9h6M9 13h6M9 17h3"/></svg></span> Invoices
+      </a>
+      <a class="nav-item {{ 'active' if active=='estimates' else '' }}" href="{{ url_for('estimates_list') }}">
+        <span class="nav-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V17l10-10 2.5 2.5-10 10H4Z"/><path d="M13 8.5 15.5 11"/><path d="M4 21h16"/></svg></span> Estimates
+      </a>
+      <a class="nav-item {{ 'active' if active=='customers' else '' }}" href="{{ url_for('customers_list') }}">
+        <span class="nav-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><circle cx="17" cy="9" r="2.4"/><path d="M15.7 13.2a4.6 4.6 0 0 1 5 4.6"/></svg></span> Customers
+      </a>
+      <a class="nav-item {{ 'active' if active=='monthly' else '' }}" href="{{ url_for('monthly_log') }}">
+        <span class="nav-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9.5h16M8 3v4M16 3v4"/></svg></span> Monthly
+      </a>
+      <a class="nav-item {{ 'active' if active=='payroll' else '' }}" href="{{ url_for('payroll_log') }}">
+        <span class="nav-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v9M14.6 9.8c0-1-1-1.8-2.6-1.8s-2.6.9-2.6 1.9c0 2.6 5.2 1.3 5.2 3.8 0 1-1 1.9-2.6 1.9s-2.6-.8-2.6-1.8"/></svg></span> Payroll
+      </a>
+      <a class="nav-item {{ 'active' if active=='reports' else '' }}" href="{{ url_for('reports') }}">
+        <span class="nav-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M11 20V4M18 20v-7"/><path d="M2.5 20h19"/></svg></span> Reports
+      </a>
+      <a class="nav-item {{ 'active' if active=='settings' else '' }}" href="{{ url_for('settings_page') }}">
+        <span class="nav-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.9 2.9l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.9-2.9l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H4a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.9-2.9l.1.1a1.7 1.7 0 0 0 1.9.3H10a1.7 1.7 0 0 0 1-1.6V4a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.9 2.9l-.1.1a1.7 1.7 0 0 0-.3 1.9V10a1.7 1.7 0 0 0 1.6 1h.2a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1Z"/></svg></span> Settings
+      </a>
+    </nav>
+
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle dark mode">
+      <span class="theme-toggle-ic">
+        <svg class="ic-moon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/></svg>
+        <svg class="ic-sun" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><circle cx="12" cy="12" r="4.2"/><path d="M12 3v2.2M12 18.8V21M21 12h-2.2M5.2 12H3M18.4 5.6l-1.55 1.55M7.15 16.85 5.6 18.4M18.4 18.4l-1.55-1.55M7.15 7.15 5.6 5.6"/></svg>
+      </span> <span id="themeToggleLabel">Dark mode</span>
+    </button>
+
+    <div class="palette-picker" role="group" aria-label="Color theme">
+      <div class="palette-picker-label">Theme</div>
+      <div class="palette-swatches" id="paletteSwatches">
+        <button type="button" class="palette-swatch" data-swatch="classic" data-palette="classic" title="Classic Blue" aria-label="Classic Blue theme"></button>
+        <button type="button" class="palette-swatch" data-swatch="voltage" data-palette="voltage" title="Voltage — Navy &amp; Yellow" aria-label="Voltage theme"></button>
+        <button type="button" class="palette-swatch" data-swatch="hazard" data-palette="hazard" title="Hazard — Black &amp; Yellow" aria-label="Hazard theme"></button>
+        <button type="button" class="palette-swatch" data-swatch="copper" data-palette="copper" title="Copper &amp; Amber" aria-label="Copper theme"></button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-title" id="pageTitle">{% block page_title %}{% endblock %}</div>
+      <div class="topbar-actions">{% block page_actions %}{% endblock %}</div>
+    </header>
+    <main class="content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+<div class="modal-overlay" id="markPaidModal">
+  <div class="modal-card">
+    <div class="section-title">Mark Paid</div>
+    <div id="markPaidWho" style="color:var(--text-muted); font-size:13.5px; margin-bottom:14px;"></div>
+    <div class="field">
+      <label>Date paid</label>
+      <input type="date" id="markPaidDate">
+    </div>
+    <div class="field">
+      <label>Category</label>
+      <div class="type-toggle">
+        <button type="button" class="type-btn" id="mpBtnG" onclick="selectMarkPaidCategory('G')">Generator (G)</button>
+        <button type="button" class="type-btn" id="mpBtnE" onclick="selectMarkPaidCategory('E')">Electrical (E)</button>
+      </div>
+    </div>
+    <div class="wizard-actions">
+      <button class="btn btn-ghost" type="button" onclick="closeMarkPaidModal()">Cancel</button>
+      <button class="btn btn-primary" type="button" id="mpConfirmBtn" disabled onclick="confirmMarkPaid()">Confirm ✓</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="bulkEmailModal">
+  <div class="modal-card">
+    <div class="section-title">Email Selected Invoices</div>
+    <div id="bulkEmailWho" style="color:var(--text-muted); font-size:13.5px; margin-bottom:6px;"></div>
+    <div style="color:var(--text-muted); font-size:12.5px; margin-bottom:14px;">
+      Each invoice is sent as its own email with just its PDF attached — this happens right away, with no review step in Mail.app.
+    </div>
+    <div class="wizard-actions">
+      <button class="btn btn-ghost" type="button" onclick="closeBulkEmailModal()">Cancel</button>
+      <button class="btn btn-primary" type="button" id="beConfirmBtn" onclick="confirmBulkEmail()">Send ✓</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="reportEmailModal">
+  <div class="modal-card">
+    <div class="section-title">Email PDF</div>
+    <div id="reportEmailWho" style="color:var(--text-muted); font-size:13.5px; margin-bottom:6px;"></div>
+    <div style="color:var(--text-muted); font-size:12.5px; margin-bottom:14px;">
+      Sends right away as its own email with the PDF attached — no review step in Mail.app.
+    </div>
+    <div class="wizard-actions">
+      <button class="btn btn-ghost" type="button" onclick="closeReportEmailModal()">Cancel</button>
+      <button class="btn btn-primary" type="button" id="reConfirmBtn" onclick="confirmReportEmail()">Send ✓</button>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% if google_places_api_key %}
+<!-- Address autocomplete (Customers / New Document) — only loaded when a
+     key is set on the Customers page. app.js's initGooglePlacesAutocomplete
+     is the callback Google's script fires once it's ready; it wires up
+     every input.address-autocomplete field present on whatever page
+     actually included this script. -->
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_places_api_key }}&libraries=places&callback=initGooglePlacesAutocomplete&loading=async" async defer></script>
+{% endif %}
+{% block scripts %}{% endblock %}
+</body>
+</html>

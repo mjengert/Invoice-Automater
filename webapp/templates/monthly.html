@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}Monthly Log — Funky's Electrical{% endblock %}
+{% block page_title %}Monthly Log{% endblock %}
+{% block page_actions %}
+  <a href="{{ url_for('monthly_export', month=month) }}" class="btn btn-secondary">Export ↓</a>
+  <a href="{{ url_for('monthly_export_pdf', month=month) }}" class="btn btn-secondary">PDF ↓</a>
+  <button class="btn btn-secondary" type="button" onclick="emailMonthlyPdf()">Email PDF</button>
+  <button class="btn btn-primary" type="button" onclick="toggleAddForm()">+ Add Entry</button>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:20px; display:flex; align-items:center; gap:16px;">
+  <form method="get" action="{{ url_for('monthly_log') }}" class="month-switcher">
+    <button type="button" class="month-nav" onclick="shiftMonthInput('monthInput', -1)" aria-label="Previous month">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <div class="month-switcher-input">
+      <svg class="month-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9.5h16M8 3v4M16 3v4"/></svg>
+      <input type="month" id="monthInput" name="month" value="{{ month }}" onchange="this.form.submit()">
+    </div>
+    <button type="button" class="month-nav" onclick="shiftMonthInput('monthInput', 1)" aria-label="Next month">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+  </form>
+  <div style="font-weight:700; font-size:15.5px;">{{ month_label }}</div>
+</div>
+
+<div class="card-grid">
+  <div class="card stat-card">
+    <div class="stat-label">Total gross</div>
+    <div class="stat-value">${{ "{:,.2f}".format(totals.total) }}</div>
+    <div class="stat-sub">{{ totals.count }} entr{{ "y" if totals.count == 1 else "ies" }}</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">Generator (G)</div>
+    <div class="stat-value">${{ "{:,.2f}".format(totals.g_total) }}</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">Electrical (E)</div>
+    <div class="stat-value">${{ "{:,.2f}".format(totals.e_total) }}</div>
+  </div>
+</div>
+
+<div class="card" id="addFormCard" style="display:none; margin-bottom:20px;">
+  <div class="section-title" id="addFormTitle">Add manual entry</div>
+  <div id="editNote" style="display:none; color:var(--text-muted); font-size:12.5px; margin-bottom:10px;">
+    Editing this only changes the Monthly Log record — it does not change the underlying invoice.
+  </div>
+  <div class="field-row">
+    <div class="field">
+      <label>Date</label>
+      <input type="date" id="afDate" value="{{ default_entry_date }}">
+    </div>
+    <div class="field">
+      <label>Name</label>
+      <input type="text" id="afName" list="customerNames" placeholder="Customer or job name">
+      <datalist id="customerNames">
+        {% for c in customers %}<option value="{{ c.name }}">{% endfor %}
+      </datalist>
+    </div>
+  </div>
+  <div class="field-row">
+    <div class="field" style="max-width:220px;">
+      <label>Category</label>
+      <div class="type-toggle">
+        <button type="button" class="type-btn" id="afBtnG" onclick="selectAddCategory('G')">Generator (G)</button>
+        <button type="button" class="type-btn" id="afBtnE" onclick="selectAddCategory('E')">Electrical (E)</button>
+      </div>
+    </div>
+    <div class="field" style="max-width:180px;">
+      <label>Gross</label>
+      <input type="number" id="afAmount" step="0.01" min="0" placeholder="0.00">
+    </div>
+  </div>
+  <div class="wizard-actions">
+    <button class="btn btn-ghost" type="button" onclick="closeAddForm()">Cancel</button>
+    <button class="btn btn-primary" type="button" id="afSubmitBtn" onclick="submitAddEntry()">Add Entry ✓</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="section-title">
+    Entries
+    <span style="color:var(--text-muted); font-weight:500; font-size:13px;">{{ entries|length }} shown</span>
+  </div>
+  {% if entries %}
+  <table>
+    <thead>
+      <tr><th>Date</th><th>Name</th><th>G/E</th><th style="text-align:right">Gross</th><th>Source</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for e in entries %}
+      <tr>
+        <td>{{ e.entry_date }}</td>
+        <td>{{ e.customer }}</td>
+        <td><span class="pill {{ 'pill-blue' if e.category == 'G' else 'pill-green' }}">{{ e.category }}</span></td>
+        <td style="text-align:right">${{ "{:,.2f}".format(e.amount) }}</td>
+        <td style="color:var(--text-muted); font-size:12.5px;">
+          {% if e.source == 'invoice' %}Invoice #{{ e.invoice_number }}{% else %}Manual{% endif %}
+        </td>
+        <td style="text-align:right">
+          <button class="btn btn-ghost btn-sm" onclick='editEntry({{ e.id }}, {{ e.entry_date|tojson }}, {{ e.customer|tojson }}, {{ e.category|tojson }}, {{ e.amount|tojson }})'>Edit</button>
+          <button class="btn btn-ghost btn-sm" onclick="deleteEntry({{ e.id }})">Remove</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-ic">📅</div>
+    No entries yet for {{ month_label }} — mark an invoice paid or add one manually.
+  </div>
+  {% endif %}
+</div>
+
+<div id="toast" class="status-banner" style="position:fixed; bottom:24px; right:24px; max-width:360px;"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const MONTH = {{ month|tojson }};
+const MONTHLY_EMAIL_TO = {{ monthly_email_to|tojson }};
+let addCategory = null;
+let editingId = null;
+
+function showToast(msg, ok) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'status-banner show ' + (ok ? 'ok' : 'err');
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+function toggleAddForm() {
+  const card = document.getElementById('addFormCard');
+  if (card.style.display === 'none') {
+    openAddForm();
+  } else {
+    closeAddForm();
+  }
+}
+
+function openAddForm() {
+  document.getElementById('addFormCard').style.display = '';
+}
+
+function closeAddForm() {
+  document.getElementById('addFormCard').style.display = 'none';
+  resetAddForm();
+}
+
+function resetAddForm() {
+  editingId = null;
+  document.getElementById('addFormTitle').textContent = 'Add manual entry';
+  document.getElementById('editNote').style.display = 'none';
+  document.getElementById('afSubmitBtn').textContent = 'Add Entry ✓';
+  document.getElementById('afDate').value = "{{ default_entry_date }}";
+  document.getElementById('afName').value = '';
+  document.getElementById('afAmount').value = '';
+  selectAddCategory(null);
+}
+
+function selectAddCategory(cat) {
+  addCategory = cat;
+  document.getElementById('afBtnG').classList.toggle('active', cat === 'G');
+  document.getElementById('afBtnE').classList.toggle('active', cat === 'E');
+}
+
+function editEntry(id, entry_date, customer, category, amount) {
+  editingId = id;
+  document.getElementById('addFormTitle').textContent = 'Edit entry';
+  document.getElementById('editNote').style.display = '';
+  document.getElementById('afSubmitBtn').textContent = 'Save Changes ✓';
+  document.getElementById('afDate').value = entry_date;
+  document.getElementById('afName').value = customer;
+  document.getElementById('afAmount').value = amount;
+  selectAddCategory(category);
+  openAddForm();
+  document.getElementById('addFormCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function submitAddEntry() {
+  const entry_date = document.getElementById('afDate').value;
+  const customer = document.getElementById('afName').value.trim();
+  const amount = document.getElementById('afAmount').value;
+
+  if (!customer) { showToast('Name is required.', false); return; }
+  if (!addCategory) { showToast('Choose Generator or Electrical.', false); return; }
+  if (!amount) { showToast('Gross amount is required.', false); return; }
+
+  try {
+    const url = editingId
+      ? '/api/monthly/entries/' + editingId + '/update'
+      : '/api/monthly/entries';
+    await apiFetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ entry_date, customer, category: addCategory, amount }),
+    });
+    window.location.href = "{{ url_for('monthly_log') }}?month=" + encodeURIComponent(entry_date.slice(0, 7));
+  } catch (e) {
+    showToast(e.message, false);
+  }
+}
+
+async function deleteEntry(id) {
+  if (!confirm('Remove this entry? If it came from marking an invoice paid, the invoice goes back to unpaid.')) return;
+  try {
+    await apiFetch('/api/monthly/entries/' + id + '/delete', { method: 'POST' });
+    window.location.reload();
+  } catch (e) {
+    showToast(e.message, false);
+  }
+}
+
+// ── Email PDF ────────────────────────────────────────────────────────────
+function emailMonthlyPdf() {
+  const toAddress = MONTHLY_EMAIL_TO;
+  if (!toAddress) { showToast('Set a Monthly Log email address on the Settings page first.', false); return; }
+  openReportEmailModal('monthly', MONTH, {{ month_label|tojson }}, toAddress, (err, data) => {
+    if (err) { showToast(err.message, false); return; }
+    showToast('Emailed the ' + data.month_label + ' Monthly Log to ' + data.to + '.', true);
+  });
+}
+</script>
+{% endblock %}

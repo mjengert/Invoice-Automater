@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Customer' if mode == 'edit' else 'New Customer' }} — Funky's Electrical{% endblock %}
+{% block page_title %}{{ 'Edit Customer' if mode == 'edit' else 'New Customer' }}{% endblock %}
+{% block page_actions %}
+  <a href="{{ url_for('customers_list') }}" class="btn btn-ghost">← All customers</a>
+{% endblock %}
+
+{% block content %}
+<div class="wizard" style="max-width:560px;">
+  <div id="banner" class="status-banner"></div>
+
+  <div class="card">
+    <div class="field">
+      <label>Full Name</label>
+      <input type="text" id="cfName" placeholder="First Last"
+             {% if mode == 'edit' %}readonly{% endif %}
+             value="{{ customer.name if customer else '' }}">
+      {% if mode == 'edit' %}
+      <p style="color:var(--text-muted); font-size:12.5px; margin-top:6px;">
+        Name can't be changed here (it's used to link past invoices) — message me if a name needs correcting.
+      </p>
+      {% endif %}
+    </div>
+    <div class="field">
+      <label>Address</label>
+      <input type="text" id="cfAddress" class="address-autocomplete" placeholder="123 Main St, City, ST 00000"
+             autocomplete="off"
+             value="{{ ((customer.address or '')|replace('\n', ', ')) if customer else '' }}">
+    </div>
+    <div class="field">
+      <label>Phone</label>
+      <input type="tel" id="cfPhone" placeholder="(850) 555-1234"
+             value="{{ (customer.phone or '') if customer else '' }}">
+    </div>
+
+    <div id="similarWrap" style="display:none; margin-bottom:16px;">
+      <div class="stat-label" style="margin-bottom:8px;">Did you mean one of these?</div>
+      <div id="similarList"></div>
+    </div>
+
+    <div class="wizard-actions">
+      <a href="{{ url_for('customers_list') }}" class="btn btn-ghost">Cancel</a>
+      <div class="right">
+        <button class="btn btn-primary" id="saveBtn" type="button">{{ 'Save Changes' if mode == 'edit' else 'Add Customer' }} ✓</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const MODE = {{ mode|tojson }};
+const ORIGINAL_NAME = {{ (customer.name if customer else "")|tojson }};
+let pendingConfirm = false;
+
+function showBanner(msg, ok) {
+  const b = document.getElementById("banner");
+  b.textContent = msg;
+  b.className = "status-banner show " + (ok ? "ok" : "err");
+}
+
+function showSimilar(similar, name) {
+  const wrap = document.getElementById("similarWrap");
+  const list = document.getElementById("similarList");
+  list.innerHTML = "";
+  (similar || []).forEach(c => {
+    const row = document.createElement("div");
+    row.className = "customer-row";
+    row.innerHTML = `
+      <div>
+        <div class="customer-name"></div>
+        <div class="customer-meta addr"></div>
+      </div>
+      <a class="btn btn-secondary btn-sm">Open →</a>`;
+    row.querySelector(".customer-name").textContent = c.name;
+    row.querySelector(".addr").textContent = c.address || "";
+    row.querySelector("a").href = "/customers/" + encodeURIComponent(c.name);
+    list.appendChild(row);
+  });
+  const saveAnyway = document.createElement("button");
+  saveAnyway.className = "btn btn-primary btn-sm";
+  saveAnyway.type = "button";
+  saveAnyway.style.marginTop = "8px";
+  saveAnyway.textContent = 'None of these — save "' + name + '" as new';
+  saveAnyway.addEventListener("click", () => {
+    pendingConfirm = true;
+    document.getElementById("saveBtn").click();
+  });
+  list.appendChild(saveAnyway);
+  wrap.style.display = "";
+}
+
+document.getElementById("saveBtn").addEventListener("click", async () => {
+  const nameEl = document.getElementById("cfName");
+  const name = nameEl.value.trim();
+  const address = document.getElementById("cfAddress").value.trim();
+  const phone = document.getElementById("cfPhone").value.trim();
+
+  if (!name) { nameEl.classList.add("field-error"); showBanner("Customer name is required.", false); return; }
+  nameEl.classList.remove("field-error");
+
+  const btn = document.getElementById("saveBtn");
+  btn.disabled = true;
+  try {
+    let res, data;
+    if (MODE === "edit") {
+      res = await fetch("/api/customers/" + encodeURIComponent(ORIGINAL_NAME), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address, phone }),
+      });
+      data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Save failed.");
+      window.location.href = "/customers/" + encodeURIComponent(ORIGINAL_NAME);
+      return;
+    }
+
+    res = await fetch("/api/customers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, address, phone, confirm: pendingConfirm }),
+    });
+    data = await res.json();
+    if (!res.ok) {
+      if (data.needs_confirm) {
+        showSimilar(data.similar, name);
+        showBanner(data.error, false);
+        return;
+      }
+      throw new Error(data.error || "Save failed.");
+    }
+    window.location.href = "/customers/" + encodeURIComponent(data.customer.name);
+  } catch (e) {
+    showBanner(e.message, false);
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+{% endblock %}

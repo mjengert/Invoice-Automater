@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Settings — Funky's Electrical{% endblock %}
+{% block page_title %}Settings{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:20px;">
+  <div class="section-title">Email addresses</div>
+  <p style="color:var(--text-muted); font-size:13px; margin-top:-6px; margin-bottom:16px;">
+    Which account these emails send <strong>from</strong>, and where each "Email PDF" / "Email Selected" button sends <strong>to</strong>.
+  </p>
+
+  <div class="field" style="max-width:420px; margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--border);">
+    <label>Send emails from <span style="color:var(--text-muted); font-weight:400;">— every "Email PDF" / "Email Selected" button</span></label>
+    <div style="display:flex; gap:8px;">
+      <input type="email" id="sendFromEmail" value="{{ send_from_email }}" placeholder="e.g. office@funkyselectrical.com">
+      <button class="btn btn-secondary btn-sm" type="button" onclick="saveSetting('send_from_email', 'sendFromEmail', 'Send-from address')">Save</button>
+    </div>
+    <p style="color:var(--text-muted); font-size:12.5px; margin-top:8px; margin-bottom:0;">
+      Must already be set up as an account in Mail.app on the shop Mac (Mail → Settings → Accounts) — this just tells Mail.app which of your existing accounts to send as. It can't create a new account or send from an address Mail.app doesn't already have credentials for. Leave blank to keep using whichever account is Mail.app's own default.
+    </p>
+  </div>
+
+  <div class="field" style="max-width:420px; margin-bottom:16px;">
+    <label>Bulk invoice email <span style="color:var(--text-muted); font-weight:400;">— Invoices page, "Email Selected"</span></label>
+    <div style="display:flex; gap:8px;">
+      <input type="email" id="bulkEmailTo" value="{{ bulk_email_to }}" placeholder="e.g. office@funkyselectrical.com">
+      <button class="btn btn-secondary btn-sm" type="button" onclick="saveSetting('bulk_email_to', 'bulkEmailTo', 'Bulk invoice email')">Save</button>
+    </div>
+  </div>
+
+  <div class="field" style="max-width:420px; margin-bottom:16px;">
+    <label>Monthly Log email <span style="color:var(--text-muted); font-weight:400;">— Monthly page, "Email PDF"</span></label>
+    <div style="display:flex; gap:8px;">
+      <input type="email" id="monthlyEmailTo" value="{{ monthly_email_to }}" placeholder="e.g. yourbookkeeper@example.com">
+      <button class="btn btn-secondary btn-sm" type="button" onclick="saveSetting('monthly_email_to', 'monthlyEmailTo', 'Monthly Log email')">Save</button>
+    </div>
+  </div>
+
+  <div class="field" style="max-width:420px;">
+    <label>Payroll Report email <span style="color:var(--text-muted); font-weight:400;">— Payroll page, "Email PDF"</span></label>
+    <div style="display:flex; gap:8px;">
+      <input type="email" id="payrollEmailTo" value="{{ payroll_email_to }}" placeholder="e.g. yourbroker@example.com">
+      <button class="btn btn-secondary btn-sm" type="button" onclick="saveSetting('payroll_email_to', 'payrollEmailTo', 'Payroll Report email')">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:20px;">
+  <div class="section-title">Payroll</div>
+  <div class="field-row">
+    <div class="field" style="max-width:280px;">
+      <label>Policy Number</label>
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="policyNumber" value="{{ policy_number }}" placeholder="e.g. NHFL0126262026">
+        <button class="btn btn-secondary btn-sm" type="button" onclick="saveSetting('policy_number', 'policyNumber', 'Policy Number')">Save</button>
+      </div>
+    </div>
+    <div class="field" style="max-width:160px;">
+      <label>State</label>
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="payrollState" value="{{ payroll_state }}" placeholder="FL" style="max-width:80px;">
+        <button class="btn btn-secondary btn-sm" type="button" onclick="saveSetting('payroll_state', 'payrollState', 'State')">Save</button>
+      </div>
+    </div>
+  </div>
+  <p style="color:var(--text-muted); font-size:12.5px; margin-top:10px; margin-bottom:0;">
+    Both apply to every Payroll Report — one state and policy number, shared by both class codes (5190 Wiring, 3724 Machinery).
+  </p>
+</div>
+
+<div class="card">
+  <div class="section-title">Address autocomplete</div>
+  <p style="color:var(--text-muted); font-size:13px; margin-top:-6px; margin-bottom:16px;">
+    Once set, the Address field on New Customer, Edit Customer, and New Invoice/Estimate will suggest real addresses as you type.
+  </p>
+  <div class="field" style="max-width:420px; margin-bottom:12px;">
+    <label>Google Places API key</label>
+    <div style="display:flex; gap:8px;">
+      <input type="password" id="placesApiKey" value="{{ google_places_api_key }}" placeholder="Paste your API key here">
+      <button class="btn btn-secondary btn-sm" type="button" onclick="saveSetting('google_places_api_key', 'placesApiKey', 'Google Places API key')">Save</button>
+    </div>
+  </div>
+  <p style="color:var(--text-muted); font-size:12.5px; margin:0;">
+    Needs a Google Cloud API key with "Maps JavaScript API" and "Places API" enabled — ask me for the setup steps if you need them again.
+  </p>
+</div>
+
+<div id="toast" class="status-banner" style="position:fixed; bottom:24px; right:24px; max-width:360px;"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showToast(msg, ok) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'status-banner show ' + (ok ? 'ok' : 'err');
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+async function saveSetting(key, inputId, label) {
+  const value = document.getElementById(inputId).value.trim();
+  try {
+    await apiFetch('/api/settings', {
+      method: 'POST',
+      body: JSON.stringify({ key, value }),
+    });
+    showToast(label + ' saved.', true);
+  } catch (e) {
+    showToast(e.message, false);
+  }
+}
+</script>
+{% endblock %}

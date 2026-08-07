@@ -1,0 +1,562 @@
+{% extends "base.html" %}
+{% block title %}{{ "Edit" if edit_number else "New" }} Document — Funky's Electrical{% endblock %}
+{% block page_title %}{{ "Edit" if edit_number else "New" }} {{ {"invoice": "Invoice", "estimate": "Estimate", "quote": "Quote"}[doc_type] }}{% if edit_number %} #{{ edit_number }}{% endif %}{% endblock %}
+{% block page_actions %}
+  {% if convert_number %}
+    <a href="{{ url_for('estimates_list') }}" class="btn btn-ghost">← All estimates</a>
+  {% elif edit_number %}
+    <a href="{{ url_for('invoices_list') if doc_type == 'invoice' else url_for('estimates_list') }}" class="btn btn-ghost">← All {{ 'invoices' if doc_type == 'invoice' else 'estimates' }}</a>
+  {% elif customer_name %}
+    <a href="{{ url_for('customer_detail', name=customer_name) }}" class="btn btn-ghost">← Back to {{ customer_name }}</a>
+  {% else %}
+    <a href="{{ url_for('invoices_list') }}" class="btn btn-ghost">← All invoices</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="wizard">
+  <div class="steps">
+    <div class="step-dot current" data-step="1"></div>
+    <div class="step-dot" data-step="2"></div>
+    <div class="step-dot" data-step="3"></div>
+    <div class="step-dot" data-step="4"></div>
+  </div>
+
+  <div id="convertBanner" class="status-banner ok" style="display:none;"></div>
+
+  <div id="typeToggleWrap" class="card" style="padding:14px 18px; margin-bottom:16px;">
+    <div class="type-toggle" id="typeToggle">
+      <button type="button" class="type-btn" data-type="invoice">Invoice</button>
+      <button type="button" class="type-btn" data-type="estimate">Estimate</button>
+      <button type="button" class="type-btn" data-type="quote">Quote</button>
+    </div>
+  </div>
+
+  <div id="banner" class="status-banner"></div>
+
+  <!-- Step 1: search / select customer -->
+  <section id="step-search" class="card wiz-step">
+    <div class="section-title">Search by customer name</div>
+    <div class="field">
+      <input type="search" id="customerSearch" placeholder="Start typing a name…" autocomplete="off">
+    </div>
+    <div id="customerResults" style="max-height:320px; overflow:auto; margin-bottom:6px;"></div>
+    <button class="btn btn-secondary" id="newCustomerBtn" type="button">+ New Customer</button>
+  </section>
+
+  <!-- Step 1b: new customer -->
+  <section id="step-new-customer" class="card wiz-step" style="display:none;">
+    <div class="section-title">New Customer</div>
+    <p style="color:var(--text-muted); font-size:13.5px; margin-top:-6px;">No existing record — enter contact details.</p>
+    <div class="field">
+      <label>Full Name</label>
+      <input type="text" id="ncName" placeholder="First Last">
+    </div>
+    <div class="field">
+      <label>Address</label>
+      <input type="text" id="ncAddress" class="address-autocomplete" autocomplete="off" placeholder="123 Main St, City, ST 00000">
+    </div>
+    <div class="field">
+      <label>Phone</label>
+      <input type="tel" id="ncPhone" placeholder="(850) 555-1234">
+    </div>
+    <div class="wizard-actions">
+      <button class="btn btn-ghost" id="ncBack" type="button">← Back</button>
+      <div class="right"><button class="btn btn-primary" id="ncContinue" type="button">Continue →</button></div>
+    </div>
+  </section>
+
+  <!-- Step 2: job details -->
+  <section id="step-job" class="card wiz-step" style="display:none;">
+    <div class="section-title">Job Details</div>
+    <p id="jobCustomerLine" style="color:var(--text-muted); font-size:13.5px; margin-top:-6px;"></p>
+    <div class="field">
+      <label>Job Name</label>
+      <input type="text" id="jobName" placeholder="e.g. Generator Maintenance">
+    </div>
+    <label>Line Items</label>
+    <p id="rangeHint" style="color:var(--text-muted); font-size:12.5px; margin:-2px 0 8px; display:none;">
+      Price can be a firm number or a range (e.g. <code>600-700</code> or <code>$600.00 - $700.00</code>).
+    </p>
+    <div id="lineItems"></div>
+    <button class="btn btn-secondary btn-sm" id="addRowBtn" type="button" style="margin-top:4px;">+ Add Row</button>
+    <div class="wizard-actions">
+      <button class="btn btn-ghost" id="jobBack" type="button">← Back</button>
+      <div class="right"><button class="btn btn-primary" id="jobReview" type="button">Review →</button></div>
+    </div>
+  </section>
+
+  <!-- Step 3: confirm -->
+  <section id="step-confirm" class="card wiz-step" style="display:none;">
+    <div class="section-title"><span id="confirmHeading">Confirm</span> <span id="confirmInvNum" style="color:var(--accent); font-weight:700;"></span></div>
+
+    <div style="background:var(--surface-muted); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; margin-bottom:16px;">
+      <div class="stat-label">Customer</div>
+      <div id="confirmCustName" style="font-weight:700; font-size:15px; margin:4px 0 2px;"></div>
+      <div id="confirmCustAddr" style="color:var(--text-muted); font-size:13px; white-space:pre-line;"></div>
+      <div id="confirmCustPhone" style="color:var(--text-muted); font-size:13px;"></div>
+
+      <div style="border-top:1px solid var(--border); margin:14px 0;"></div>
+
+      <div class="stat-label">Job</div>
+      <div id="confirmJobName" style="font-weight:700; font-size:15px; margin:4px 0 10px;"></div>
+      <div id="confirmItems"></div>
+
+      <div class="summary-total"><span>TOTAL</span><span id="confirmTotal"></span></div>
+    </div>
+
+    <div class="wizard-actions">
+      <button class="btn btn-ghost" id="confirmEdit" type="button">← Edit</button>
+      <div class="right">
+        <button class="btn btn-secondary" id="confirmPreview" type="button">Preview PDF</button>
+        <button class="btn btn-success" id="confirmSave" type="button">Save <span class="doc-type-label">Invoice</span> ✓</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Step 4: done -->
+  <section id="step-done" class="card wiz-step" style="display:none; text-align:center;">
+    <div class="done-icon">✅</div>
+    <div id="doneHeading" style="font-size:20px; font-weight:700; margin-bottom:4px;">Saved!</div>
+    <div id="doneSummary" style="color:var(--text-muted); font-size:14px; margin-bottom:6px;"></div>
+    <div id="doneStatus" style="font-size:13px; color:var(--text-muted); min-height:18px;"></div>
+
+    <div class="action-grid">
+      <button class="btn btn-secondary" id="donePrint" type="button">🖨 Print</button>
+      <button class="btn btn-secondary" id="doneEmail" type="button">📧 Email PDF</button>
+      <button class="btn btn-secondary" id="doneOpen" type="button">📂 Open in Excel</button>
+    </div>
+    <button class="btn btn-primary btn-lg" id="doneNew" type="button">+ New Document</button>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const DOC_LABELS = { invoice: "Invoice", estimate: "Estimate", quote: "Quote" };
+const CONVERT_NUMBER = {{ (convert_number or "null") }};
+const CUSTOMER_NAME = {{ (customer_name or "")|tojson }};
+const EDIT_NUMBER = {{ (edit_number or "null") }};
+
+const wiz = {
+  docType: {{ (doc_type or "invoice")|tojson }},
+  convertMode: !!CONVERT_NUMBER,
+  editMode: !!EDIT_NUMBER,
+  customer: null, jobName: "", items: [], invNumber: null,
+};
+const steps = ["search", "new-customer", "job", "confirm", "done"];
+const dotForStep = { search: 1, "new-customer": 1, job: 2, confirm: 3, done: 4 };
+
+function showStep(name) {
+  steps.forEach(s => {
+    document.getElementById("step-" + s).style.display = (s === name) ? "" : "none";
+  });
+  const n = dotForStep[name];
+  document.querySelectorAll(".step-dot").forEach(d => {
+    const ds = Number(d.dataset.step);
+    d.classList.toggle("current", ds === n);
+    d.classList.toggle("done", ds < n);
+  });
+  document.getElementById("typeToggleWrap").style.display =
+    (wiz.convertMode || wiz.editMode || name === "confirm" || name === "done") ? "none" : "";
+  hideBanner();
+}
+
+function showBanner(msg, ok) {
+  const b = document.getElementById("banner");
+  b.textContent = msg;
+  b.className = "status-banner show " + (ok ? "ok" : "err");
+}
+function hideBanner() {
+  document.getElementById("banner").classList.remove("show");
+}
+
+// ── Document type toggle ─────────────────────────────────────────────────
+function priceInputType() {
+  // Convert mode may be pre-filled with the original range text (e.g.
+  // "$600.00 - $700.00") that she's about to resolve to a firm number —
+  // keep the field permissive (text) so that value can actually display
+  // and be edited, even though the doc type itself is locked to invoice.
+  if (wiz.convertMode) return "text";
+  return wiz.docType === "invoice" ? "number" : "text";
+}
+function pricePlaceholder() { return wiz.docType === "invoice" ? "0.00" : "0.00 or a range"; }
+
+function updateDocTypeUI() {
+  document.querySelectorAll(".type-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.type === wiz.docType);
+  });
+  document.querySelectorAll(".doc-type-label").forEach(el => { el.textContent = DOC_LABELS[wiz.docType]; });
+  document.getElementById("pageTitle").textContent = (wiz.editMode ? "Edit " : "New ") + DOC_LABELS[wiz.docType] + (wiz.editMode ? " #" + EDIT_NUMBER : "");
+  document.getElementById("rangeHint").style.display = wiz.docType === "invoice" ? "none" : "";
+  refreshPriceInputs();
+}
+
+function refreshPriceInputs() {
+  const type = priceInputType();
+  const ph = pricePlaceholder();
+  lineItemsEl.querySelectorAll(".price").forEach(input => {
+    input.type = type;
+    input.placeholder = ph;
+  });
+}
+
+document.querySelectorAll(".type-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    wiz.docType = btn.dataset.type;
+    updateDocTypeUI();
+  });
+});
+
+// ── Step 1: customer search ──────────────────────────────────────────────
+const searchInput = document.getElementById("customerSearch");
+const resultsEl = document.getElementById("customerResults");
+let searchTimer = null;
+
+async function runSearch() {
+  const q = searchInput.value;
+  try {
+    const hits = await apiFetch("/api/customers/search?q=" + encodeURIComponent(q));
+    renderResults(hits);
+  } catch (e) { /* ignore transient errors while typing */ }
+}
+
+function renderResults(hits) {
+  resultsEl.innerHTML = "";
+  if (!hits.length) {
+    const div = document.createElement("div");
+    div.className = "empty-state";
+    div.style.padding = "24px 0";
+    div.textContent = "No matches — try “+ New Customer” below.";
+    resultsEl.appendChild(div);
+    return;
+  }
+  hits.forEach(c => {
+    const row = document.createElement("div");
+    row.className = "customer-row";
+    row.innerHTML = `
+      <div>
+        <div class="customer-name"></div>
+        <div class="customer-meta addr"></div>
+        <div class="customer-meta phone"></div>
+      </div>
+      <button class="btn btn-primary btn-sm">Select →</button>`;
+    row.querySelector(".customer-name").textContent = c.name;
+    row.querySelector(".addr").textContent = c.address || "";
+    row.querySelector(".phone").textContent = c.phone || "";
+    row.querySelector("button").addEventListener("click", () => selectCustomer(c));
+    resultsEl.appendChild(row);
+  });
+}
+
+function selectCustomer(c) {
+  wiz.customer = { name: c.name, address: c.address || "", phone: c.phone || "" };
+  goToJob();
+}
+
+searchInput.addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(runSearch, 150);
+});
+
+document.getElementById("newCustomerBtn").addEventListener("click", () => {
+  document.getElementById("ncName").value = searchInput.value;
+  document.getElementById("ncAddress").value = "";
+  document.getElementById("ncPhone").value = "";
+  showStep("new-customer");
+});
+
+// ── Step 1b: new customer ────────────────────────────────────────────────
+document.getElementById("ncBack").addEventListener("click", () => showStep("search"));
+document.getElementById("ncContinue").addEventListener("click", () => {
+  const name = document.getElementById("ncName").value.trim();
+  if (!name) { document.getElementById("ncName").classList.add("field-error"); return; }
+  document.getElementById("ncName").classList.remove("field-error");
+  wiz.customer = {
+    name,
+    address: document.getElementById("ncAddress").value.trim(),
+    phone: document.getElementById("ncPhone").value.trim(),
+  };
+  goToJob();
+});
+
+// ── Step 2: job details ──────────────────────────────────────────────────
+const lineItemsEl = document.getElementById("lineItems");
+
+function goToJob() {
+  document.getElementById("jobCustomerLine").textContent = "Customer: " + wiz.customer.name;
+  document.getElementById("jobName").value = (wiz.convertMode || wiz.editMode) ? (wiz.jobName || "") : "";
+  document.getElementById("jobName").classList.remove("field-error");
+  lineItemsEl.innerHTML = "";
+  if ((wiz.convertMode || wiz.editMode) && wiz.items.length) {
+    wiz.items.forEach(it => addRow(it.detail, it.price));
+  } else {
+    addRow();
+  }
+  updateDocTypeUI();
+  showStep("job");
+}
+
+function addRow(detail, price) {
+  const row = document.createElement("div");
+  row.className = "line-item-row";
+  const idx = lineItemsEl.children.length + 1;
+  const type = priceInputType();
+  row.innerHTML = `
+    <div class="idx"></div>
+    <input type="text" class="detail" placeholder="Description">
+    <div class="price-wrap">$<input type="${type}" ${type === "number" ? 'step="0.01"' : ""} class="price" placeholder="${pricePlaceholder()}"></div>
+    <button class="remove-row" type="button">✕</button>`;
+  row.querySelector(".idx").textContent = idx + ".";
+  row.querySelector(".detail").value = detail || "";
+  row.querySelector(".price").value = price != null ? price : "";
+  row.querySelector(".remove-row").addEventListener("click", () => {
+    row.remove();
+    renumberRows();
+  });
+  lineItemsEl.appendChild(row);
+}
+
+function renumberRows() {
+  [...lineItemsEl.children].forEach((row, i) => {
+    row.querySelector(".idx").textContent = (i + 1) + ".";
+  });
+}
+
+document.getElementById("addRowBtn").addEventListener("click", () => addRow());
+document.getElementById("jobBack").addEventListener("click", () => {
+  if (wiz.convertMode) {
+    window.location.href = "{{ url_for('estimates_list') }}";
+  } else {
+    showStep("search");
+  }
+});
+
+document.getElementById("jobReview").addEventListener("click", async () => {
+  const jobNameEl = document.getElementById("jobName");
+  const jobName = jobNameEl.value.trim();
+  if (!jobName) { jobNameEl.classList.add("field-error"); return; }
+  jobNameEl.classList.remove("field-error");
+
+  const items = [...lineItemsEl.children].map(row => ({
+    detail: row.querySelector(".detail").value.trim(),
+    price: row.querySelector(".price").value,
+  })).filter(it => it.detail || it.price);
+
+  if (!items.length) { showBanner("Add at least one line item.", false); return; }
+
+  wiz.jobName = jobName;
+  wiz.items = items;
+
+  if (wiz.convertMode) {
+    wiz.invNumber = CONVERT_NUMBER;
+    goToConfirm();
+    return;
+  }
+  if (wiz.editMode) {
+    wiz.invNumber = EDIT_NUMBER;
+    goToConfirm();
+    return;
+  }
+
+  try {
+    const data = await apiFetch("/api/invoices/next-number");
+    wiz.invNumber = data.number;
+  } catch (e) {
+    wiz.invNumber = null;
+  }
+  goToConfirm();
+});
+
+// ── Step 3: confirm ───────────────────────────────────────────────────────
+function parseAmountClient(raw) {
+  if (raw === null || raw === undefined || raw === "") return { num: 0, disp: null };
+  const s = String(raw).trim();
+  const cleaned = s.replace(/\$/g, "").replace(/,/g, "").trim();
+  const n = parseFloat(cleaned);
+  if (!isNaN(n) && /^-?\d+(\.\d+)?$/.test(cleaned)) return { num: n, disp: null };
+  return { num: null, disp: s };
+}
+
+function goToConfirm() {
+  document.getElementById("confirmHeading").textContent =
+    wiz.convertMode ? `Confirm — Converting to Invoice` :
+    wiz.editMode ? `Confirm Changes` : `Confirm ${DOC_LABELS[wiz.docType]}`;
+  document.getElementById("confirmInvNum").textContent = wiz.invNumber ? ("#" + wiz.invNumber) : "";
+  document.getElementById("confirmCustName").textContent = wiz.customer.name;
+  document.getElementById("confirmCustAddr").textContent = wiz.customer.address || "";
+  document.getElementById("confirmCustPhone").textContent = wiz.customer.phone || "";
+  document.getElementById("confirmJobName").textContent = wiz.jobName;
+
+  const itemsEl = document.getElementById("confirmItems");
+  itemsEl.innerHTML = "";
+  let total = 0;
+  let hasRange = false;
+  const parts = [];
+  wiz.items.forEach(it => {
+    const { num, disp } = parseAmountClient(it.price);
+    const amtText = num !== null ? money(num) : disp;
+    if (num !== null) { total += num; parts.push(money(num)); } else { hasRange = true; parts.push(disp); }
+    const row = document.createElement("div");
+    row.className = "summary-row";
+    row.innerHTML = `<span></span><span></span>`;
+    row.children[0].textContent = it.detail || "(no description)";
+    row.children[1].textContent = amtText;
+    itemsEl.appendChild(row);
+  });
+  const totalText = hasRange ? (parts.length === 1 ? parts[0] : parts.join(" + ")) : money(total);
+  document.getElementById("confirmTotal").textContent = totalText;
+  updateDocTypeUI();
+  document.getElementById("confirmSave").innerHTML = wiz.editMode
+    ? "Save Changes ✓"
+    : `Save <span class="doc-type-label">${DOC_LABELS[wiz.docType]}</span> ✓`;
+  showStep("confirm");
+}
+
+document.getElementById("confirmEdit").addEventListener("click", () => showStep("job"));
+
+document.getElementById("confirmPreview").addEventListener("click", async () => {
+  try {
+    const res = await fetch("/api/documents/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        customer: wiz.customer, job_name: wiz.jobName, line_items: wiz.items,
+        number: wiz.invNumber, doc_type: wiz.convertMode ? "invoice" : wiz.docType,
+      }),
+    });
+    if (!res.ok) throw new Error("Preview failed.");
+    const blob = await res.blob();
+    window.open(URL.createObjectURL(blob), "_blank");
+  } catch (e) {
+    showBanner(e.message, false);
+  }
+});
+
+let saved = null;
+
+document.getElementById("confirmSave").addEventListener("click", async (ev) => {
+  const btn = ev.currentTarget;
+  btn.disabled = true;
+  try {
+    let data;
+    if (wiz.convertMode) {
+      data = await apiFetch("/api/documents/convert", {
+        method: "POST",
+        body: JSON.stringify({ number: wiz.invNumber, customer: wiz.customer, job_name: wiz.jobName, line_items: wiz.items }),
+      });
+    } else if (wiz.editMode) {
+      data = await apiFetch("/api/documents/" + EDIT_NUMBER + "/update", {
+        method: "POST",
+        body: JSON.stringify({ customer: wiz.customer, job_name: wiz.jobName, line_items: wiz.items }),
+      });
+    } else {
+      data = await apiFetch("/api/documents", {
+        method: "POST",
+        body: JSON.stringify({ customer: wiz.customer, job_name: wiz.jobName, line_items: wiz.items, doc_type: wiz.docType }),
+      });
+    }
+    saved = data;
+    document.getElementById("doneHeading").textContent =
+      wiz.convertMode ? "Converted to Invoice!" :
+      wiz.editMode ? DOC_LABELS[wiz.docType] + " Updated!" : DOC_LABELS[wiz.docType] + " Saved!";
+    document.getElementById("doneSummary").textContent =
+      `#${data.number} — ${data.customer} — ${money(data.total)}`;
+    document.getElementById("doneStatus").textContent = "";
+    showStep("done");
+  } catch (e) {
+    showBanner(e.message, false);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ── Step 4: done ──────────────────────────────────────────────────────────
+async function doAction(action, label) {
+  const statusEl = document.getElementById("doneStatus");
+  statusEl.textContent = label + "…";
+  try {
+    const data = await apiFetch("/api/invoices/action", {
+      method: "POST",
+      body: JSON.stringify({ customer: saved.customer, number: saved.number, action }),
+    });
+    statusEl.textContent = data.message;
+    statusEl.style.color = "var(--green)";
+  } catch (e) {
+    statusEl.textContent = e.message;
+    statusEl.style.color = "var(--red)";
+  }
+}
+document.getElementById("donePrint").addEventListener("click", () => doAction("print", "Sending to printer"));
+document.getElementById("doneEmail").addEventListener("click", () => doAction("email", "Generating PDF"));
+document.getElementById("doneOpen").addEventListener("click", () => doAction("open", "Opening in Excel"));
+document.getElementById("doneNew").addEventListener("click", () => {
+  window.location.href = "{{ url_for('document_new', type='invoice') }}";
+});
+
+// ── Convert mode: preload the estimate/quote being converted ─────────────
+async function loadConvertDoc() {
+  try {
+    const data = await apiFetch("/api/documents/" + CONVERT_NUMBER);
+    const doc = data.document;
+    wiz.customer = doc.customer;
+    wiz.jobName = doc.job;
+    wiz.items = (doc.line_items || []).map(it => ({ detail: it[0], price: it[1] == null ? "" : String(it[1]) }));
+    wiz.invNumber = doc.number;
+    wiz.docType = "invoice";
+    const banner = document.getElementById("convertBanner");
+    banner.style.display = "";
+    banner.className = "status-banner show ok";
+    banner.textContent = `Converting ${doc.doc_type.toUpperCase()} #${doc.number} to an Invoice — same number, so double-check the price before saving.`;
+    goToJob();
+  } catch (e) {
+    showBanner("Couldn't load that estimate: " + e.message, false);
+    showStep("search");
+  }
+}
+
+// ── Edit mode: preload the existing document being edited ────────────────
+async function loadEditDoc() {
+  try {
+    const data = await apiFetch("/api/documents/" + EDIT_NUMBER);
+    const doc = data.document;
+    wiz.customer = doc.customer;
+    wiz.jobName = doc.job;
+    wiz.items = (doc.line_items || []).map(it => ({ detail: it[0], price: it[1] == null ? "" : String(it[1]) }));
+    wiz.invNumber = doc.number;
+    wiz.docType = doc.doc_type;
+    goToJob();
+  } catch (e) {
+    showBanner("Couldn't load that document: " + e.message, false);
+  }
+}
+
+// ── Customer deep-link: preload a known customer and jump to Job step ───
+async function loadPrefillCustomer() {
+  try {
+    const data = await apiFetch("/api/customers/" + encodeURIComponent(CUSTOMER_NAME));
+    wiz.customer = data.customer;
+    goToJob();
+  } catch (e) {
+    showBanner("Couldn't load that customer: " + e.message, false);
+    showStep("search");
+    runSearch();
+  }
+}
+
+// ── initial load ───────────────────────────────────────────────────────────
+updateDocTypeUI();
+if (wiz.convertMode) {
+  document.getElementById("typeToggleWrap").style.display = "none";
+  loadConvertDoc();
+} else if (wiz.editMode) {
+  document.getElementById("typeToggleWrap").style.display = "none";
+  loadEditDoc();
+} else if (CUSTOMER_NAME) {
+  loadPrefillCustomer();
+} else {
+  showStep("search");
+  runSearch();
+}
+</script>
+{% endblock %}

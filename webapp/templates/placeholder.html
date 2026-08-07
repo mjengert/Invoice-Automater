@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ info.title }} — Funky's Electrical{% endblock %}
+{% block page_title %}{{ info.title }}{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:560px;">
+  <span class="coming-soon-badge">Coming in {{ info.phase }}</span>
+  <div class="section-title" style="margin-bottom:8px;">{{ info.title }} isn't built yet</div>
+  <p style="color:var(--text-muted); font-size:14.5px; line-height:1.55; margin:0 0 18px;">{{ info.blurb }}</p>
+  <a href="{{ url_for('home') }}" class="btn btn-secondary">← Back to Home</a>
+</div>
+{% endblock %}

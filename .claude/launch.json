@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "jobsearchtracker",
+      "runtimeExecutable": "/Users/mj-home/JobSearchTracker/.venv/bin/python",
+      "runtimeArgs": ["/Users/mj-home/JobSearchTracker/run.py"],
+      "port": 5050
+    }
+  ]
+}

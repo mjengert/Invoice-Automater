@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block title %}Payroll Log — Funky's Electrical{% endblock %}
+{% block page_title %}Payroll Log{% endblock %}
+{% block page_actions %}
+  <a href="{{ url_for('payroll_workers') }}" class="btn btn-ghost">Manage Workers →</a>
+  <a href="{{ url_for('payroll_export', month=month) }}" class="btn btn-secondary">Export ↓</a>
+  <a href="{{ url_for('payroll_export_pdf', month=month) }}" class="btn btn-secondary">PDF ↓</a>
+  <button class="btn btn-secondary" type="button" onclick="emailPayrollPdf()">Email PDF</button>
+  <button class="btn btn-primary" type="button" onclick="toggleAddForm()">+ Add Entry</button>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:20px; display:flex; align-items:center; gap:16px;">
+  <form method="get" action="{{ url_for('payroll_log') }}" class="month-switcher">
+    <button type="button" class="month-nav" onclick="shiftMonthInput('monthInput', -1)" aria-label="Previous month">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <div class="month-switcher-input">
+      <svg class="month-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9.5h16M8 3v4M16 3v4"/></svg>
+      <input type="month" id="monthInput" name="month" value="{{ month }}" onchange="this.form.submit()">
+    </div>
+    <button type="button" class="month-nav" onclick="shiftMonthInput('monthInput', 1)" aria-label="Next month">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+  </form>
+  <div style="font-weight:700; font-size:15.5px;">{{ month_label }}</div>
+</div>
+
+<div class="card-grid">
+  <div class="card stat-card">
+    <div class="stat-label">Total gross</div>
+    <div class="stat-value">${{ "{:,.2f}".format(totals.total) }}</div>
+    <div class="stat-sub">{{ totals.count }} entr{{ "y" if totals.count == 1 else "ies" }}</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:20px;">
+  <div class="section-title">Class codes</div>
+  <p style="color:var(--text-muted); font-size:13px; margin-top:-6px; margin-bottom:0;">
+    Fixed on every Payroll Report — pick the one that applies when you add an entry, no worker profile needed.
+  </p>
+  <div style="display:flex; gap:24px; margin-top:12px; flex-wrap:wrap;">
+    {% for code in payroll_code_order %}
+    <div style="font-size:13.5px;">
+      <strong>{{ code }} — {{ payroll_codes[code].description }}</strong>
+      <span style="color:var(--text-muted);"> · rate {{ payroll_codes[code].rate }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  <p style="color:var(--text-muted); font-size:12.5px; margin-top:14px; margin-bottom:0; border-top:1px solid var(--border); padding-top:12px;">
+    Policy Number <strong style="color:var(--text);">{{ policy_number or '—' }}</strong> · State <strong style="color:var(--text);">{{ payroll_state }}</strong>
+    — change these on the <a href="{{ url_for('settings_page') }}">Settings</a> page.
+  </p>
+</div>
+
+<div class="card" id="addFormCard" style="display:none; margin-bottom:20px;">
+  <div class="section-title" id="addFormTitle">Add payroll entry</div>
+  <div class="field-row">
+    <div class="field">
+      <label>Date</label>
+      <input type="date" id="peDate" value="{{ default_entry_date }}">
+    </div>
+    <div class="field">
+      <label>Worker</label>
+      <input type="text" id="peWorker" list="workerNames" placeholder="First Last">
+      <datalist id="workerNames">
+        {% for w in workers %}<option value="{{ w.name }}">{% endfor %}
+      </datalist>
+    </div>
+    <div class="field">
+      <label>Gross</label>
+      <input type="number" id="peGross" step="0.01" min="0" placeholder="0.00">
+    </div>
+  </div>
+  <div class="field" style="max-width:360px;">
+    <label>Class Code</label>
+    <div class="type-toggle">
+      {% for code in payroll_code_order %}
+      <button type="button" class="type-btn" id="peBtn{{ code }}" onclick="selectCode('{{ code }}')">{{ payroll_codes[code].description }} ({{ code }})</button>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="wizard-actions">
+    <button class="btn btn-ghost" type="button" onclick="closeAddForm()">Cancel</button>
+    <button class="btn btn-primary" type="button" id="peSubmitBtn" onclick="submitAddEntry()">Add Entry ✓</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="section-title">
+    Entries
+    <span style="color:var(--text-muted); font-weight:500; font-size:13px;">{{ entries|length }} shown</span>
+  </div>
+  {% if entries %}
+  <table>
+    <thead>
+      <tr><th>Date</th><th>Worker</th><th>Class Code</th><th style="text-align:right">Gross</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for e in entries %}
+      <tr>
+        <td>{{ e.entry_date }}</td>
+        <td>{{ e.worker }}</td>
+        <td>{% if e.class_code %}<span class="pill {{ 'pill-blue' if e.class_code == payroll_code_order[0] else 'pill-green' }}">{{ payroll_codes[e.class_code].description if e.class_code in payroll_codes else e.class_code }}</span>{% endif %}</td>
+        <td style="text-align:right">${{ "{:,.2f}".format(e.gross) }}</td>
+        <td style="text-align:right">
+          <button class="btn btn-ghost btn-sm" onclick='editEntry({{ e.id }}, {{ e.entry_date|tojson }}, {{ e.worker|tojson }}, {{ e.class_code|tojson }}, {{ e.gross|tojson }})'>Edit</button>
+          <button class="btn btn-ghost btn-sm" onclick="deleteEntry({{ e.id }})">Remove</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-ic">💵</div>
+    No payroll entries yet for {{ month_label }}.
+  </div>
+  {% endif %}
+</div>
+
+<div id="toast" class="status-banner" style="position:fixed; bottom:24px; right:24px; max-width:360px;"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const MONTH = {{ month|tojson }};
+const PAYROLL_CODE_ORDER = {{ payroll_code_order|tojson }};
+const PAYROLL_EMAIL_TO = {{ payroll_email_to|tojson }};
+let editingId = null;
+let selectedCode = null;
+
+function showToast(msg, ok) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'status-banner show ' + (ok ? 'ok' : 'err');
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+function toggleAddForm() {
+  const card = document.getElementById('addFormCard');
+  if (card.style.display === 'none') {
+    openAddForm();
+  } else {
+    closeAddForm();
+  }
+}
+
+function openAddForm() {
+  document.getElementById('addFormCard').style.display = '';
+}
+
+function closeAddForm() {
+  document.getElementById('addFormCard').style.display = 'none';
+  resetAddForm();
+}
+
+function selectCode(code) {
+  selectedCode = code;
+  PAYROLL_CODE_ORDER.forEach(c => {
+    const btn = document.getElementById('peBtn' + c);
+    if (btn) btn.classList.toggle('active', c === code);
+  });
+}
+
+function resetAddForm() {
+  editingId = null;
+  const title = document.getElementById('addFormTitle');
+  const btn = document.getElementById('peSubmitBtn');
+  if (title) title.textContent = 'Add payroll entry';
+  if (btn) btn.textContent = 'Add Entry ✓';
+  const dateEl = document.getElementById('peDate');
+  const workerEl = document.getElementById('peWorker');
+  const grossEl = document.getElementById('peGross');
+  if (dateEl) dateEl.value = "{{ default_entry_date }}";
+  if (workerEl) workerEl.value = '';
+  if (grossEl) grossEl.value = '';
+  selectCode(null);
+}
+
+function editEntry(id, entry_date, worker, class_code, gross) {
+  editingId = id;
+  document.getElementById('addFormTitle').textContent = 'Edit payroll entry';
+  document.getElementById('peSubmitBtn').textContent = 'Save Changes ✓';
+  document.getElementById('peDate').value = entry_date;
+  document.getElementById('peWorker').value = worker;
+  document.getElementById('peGross').value = gross;
+  selectCode(class_code);
+  openAddForm();
+  document.getElementById('addFormCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function submitAddEntry() {
+  const entry_date = document.getElementById('peDate').value;
+  const worker = document.getElementById('peWorker').value.trim();
+  const gross = document.getElementById('peGross').value;
+
+  if (!worker) { showToast('Worker is required.', false); return; }
+  if (!selectedCode) { showToast('Choose a class code.', false); return; }
+  if (!gross) { showToast('Gross amount is required.', false); return; }
+
+  try {
+    const url = editingId
+      ? '/api/payroll/entries/' + editingId + '/update'
+      : '/api/payroll/entries';
+    await apiFetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ entry_date, worker, class_code: selectedCode, gross }),
+    });
+    window.location.href = "{{ url_for('payroll_log') }}?month=" + encodeURIComponent(entry_date.slice(0, 7));
+  } catch (e) {
+    showToast(e.message, false);
+  }
+}
+
+async function deleteEntry(id) {
+  if (!confirm('Remove this payroll entry?')) return;
+  try {
+    await apiFetch('/api/payroll/entries/' + id + '/delete', { method: 'POST' });
+    window.location.reload();
+  } catch (e) {
+    showToast(e.message, false);
+  }
+}
+
+// ── Email PDF ────────────────────────────────────────────────────────────
+function emailPayrollPdf() {
+  const toAddress = PAYROLL_EMAIL_TO;
+  if (!toAddress) { showToast('Set a Payroll Report email address on the Settings page first.', false); return; }
+  openReportEmailModal('payroll', MONTH, {{ month_label|tojson }}, toAddress, (err, data) => {
+    if (err) { showToast(err.message, false); return; }
+    showToast('Emailed the ' + data.month_label + ' Payroll Report to ' + data.to + '.', true);
+  });
+}
+</script>
+{% endblock %}

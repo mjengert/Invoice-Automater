@@ -1,0 +1,533 @@
+/* Funky's Electrical — Bookkeeping Dashboard
+   Modern UI: light theme default, dark mode option, card-based, spacious.
+
+   Color THEME (accent palette) is a separate axis from light/dark mode —
+   four electrical-company-flavored palettes to choose from via the
+   sidebar's palette swatches, each with its own light + dark variant:
+     - classic  : the original invoice blue, plus a small "spark" accent
+                  (default — matches the paperwork, subtlest option)
+     - voltage  : deep navy + safety yellow
+     - hazard   : black + safety yellow (hazard-tape look)
+     - copper   : warm copper/amber, evoking bare wire + work-lamp light
+   --on-accent is the text color to use on top of a solid --accent
+   background (.btn-primary, the brand mark, active toggle buttons) —
+   most palettes want white there, but the dark-mode variants of
+   voltage/hazard flip --accent to a bright yellow for visibility, which
+   needs dark text on top instead. --spark is a small, deliberately
+   sparing highlight color (the active-nav indicator bar, a subtle glow
+   on the bolt logo) — the "small touches" layer on top of the palette. */
+
+/* Two-font system, independent of palette/theme — --font-display (Barlow
+   Condensed, loaded in base.html) is a bold, slightly industrial face used
+   for branding, page/section titles, nav labels, and the big stat numbers,
+   where a little personality is welcome. --font-body is the original
+   system-font stack, kept for anything data-dense or interactive (tables,
+   inputs, buttons, pills) where maximum plain legibility matters more than
+   character. If the Google Fonts request fails for any reason, --font-display
+   just falls through to the same system stack — nothing breaks. */
+:root {
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-display: "Barlow Condensed", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+:root, html[data-palette="classic"] {
+  color-scheme: light;
+  --accent: #1a5276;
+  --accent-light: #d6e9f2;
+  --accent-hover: #154360;
+  --on-accent: #ffffff;
+  --spark: #f0b429;
+  --green: #1e8e5a;
+  --green-bg: #e5f6ee;
+  --red: #c0392b;
+  --red-bg: #fdecea;
+  --gray: #6b7280;
+
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --surface-muted: #f8f9fb;
+  --border: #e4e7ec;
+  --text: #1c2530;
+  --text-muted: #6b7280;
+  --shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+  --shadow-md: 0 4px 10px rgba(16,24,40,.06), 0 2px 4px rgba(16,24,40,.05);
+  --radius: 14px;
+  --radius-sm: 9px;
+  --sidebar-w: 272px;
+  --cal-icon-filter: invert(46%) sepia(60%) saturate(500%) hue-rotate(165deg) brightness(95%);
+}
+
+html[data-theme="dark"], html[data-theme="dark"][data-palette="classic"] {
+  color-scheme: dark;
+  --accent: #4f9fd6;
+  --accent-light: #17324a;
+  --accent-hover: #6cb2e0;
+  --on-accent: #ffffff;
+  --spark: #ffd66b;
+  --green: #38c793;
+  --green-bg: #103828;
+  --red: #f0796a;
+  --red-bg: #3a1c1a;
+  --gray: #9aa4b2;
+
+  --bg: #12161c;
+  --surface: #1b212a;
+  --surface-muted: #20262f;
+  --border: #2b323d;
+  --text: #eef1f5;
+  --text-muted: #9aa4b2;
+  --shadow: 0 1px 2px rgba(0,0,0,.35);
+  --shadow-md: 0 6px 16px rgba(0,0,0,.4);
+  --cal-icon-filter: invert(75%) sepia(20%) saturate(900%) hue-rotate(165deg) brightness(105%);
+}
+
+/* ─── Palette: voltage (deep navy + safety yellow) ───────────────────── */
+
+html[data-palette="voltage"] {
+  --accent: #13294b;
+  --accent-light: #fff3c4;
+  --accent-hover: #0c1d38;
+  --on-accent: #ffffff;
+  --spark: #f5c518;
+  --cal-icon-filter: invert(14%) sepia(35%) saturate(1800%) hue-rotate(190deg) brightness(90%);
+}
+html[data-palette="voltage"][data-theme="dark"] {
+  --accent: #f5c518;
+  --accent-light: #3a2f0a;
+  --accent-hover: #ffd84d;
+  --on-accent: #161616;
+  --spark: #f5c518;
+  --cal-icon-filter: invert(85%) sepia(60%) saturate(900%) hue-rotate(0deg) brightness(105%);
+}
+
+/* ─── Palette: hazard (black + safety yellow, hazard-tape look) ──────── */
+
+html[data-palette="hazard"] {
+  --accent: #161616;
+  --accent-light: #fff3b0;
+  --accent-hover: #000000;
+  --on-accent: #ffffff;
+  --spark: #ffcc00;
+  --cal-icon-filter: grayscale(100%) brightness(15%);
+}
+html[data-palette="hazard"][data-theme="dark"] {
+  --accent: #ffcc00;
+  --accent-light: #3a2f00;
+  --accent-hover: #ffe066;
+  --on-accent: #161616;
+  --spark: #ffcc00;
+  --cal-icon-filter: invert(85%) sepia(70%) saturate(900%) hue-rotate(0deg) brightness(105%);
+}
+
+/* ─── Palette: copper (warm copper/amber, bare-wire tone) ─────────────── */
+
+html[data-palette="copper"] {
+  --accent: #a15c2e;
+  --accent-light: #fbe6d4;
+  --accent-hover: #7c4520;
+  --on-accent: #ffffff;
+  --spark: #e8a33d;
+  --cal-icon-filter: invert(45%) sepia(65%) saturate(900%) hue-rotate(345deg) brightness(95%);
+}
+html[data-palette="copper"][data-theme="dark"] {
+  --accent: #e0935a;
+  --accent-light: #3a2413;
+  --accent-hover: #f0aa72;
+  --on-accent: #1c1c1c;
+  --spark: #f0c987;
+  --cal-icon-filter: invert(70%) sepia(45%) saturate(700%) hue-rotate(335deg) brightness(100%);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+
+.shell { display: flex; min-height: 100vh; }
+
+/* ─── Sidebar ─────────────────────────────────────────────────────────── */
+
+.sidebar {
+  width: var(--sidebar-w);
+  flex: 0 0 var(--sidebar-w);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 26px 18px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.brand { display: flex; align-items: center; gap: 13px; padding: 4px 8px 30px; }
+.brand-mark {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: var(--accent); color: var(--on-accent);
+  display: flex; align-items: center; justify-content: center;
+  flex: none;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--spark);
+  transition: box-shadow .2s ease, background .2s ease, color .2s ease;
+}
+.brand-name { font-family: var(--font-display); font-weight: 700; font-size: 17px; line-height: 1.2; letter-spacing: .01em; }
+.brand-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+
+.nav { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+.nav-item {
+  display: flex; align-items: center; gap: 13px;
+  padding: 13px 16px; border-radius: var(--radius-sm);
+  font-family: var(--font-display); font-size: 17px; font-weight: 600; color: var(--text-muted);
+  letter-spacing: .01em;
+  position: relative;
+  transition: background .16s ease, color .16s ease, padding-left .16s ease;
+}
+.nav-item:hover { background: var(--surface-muted); color: var(--text); }
+.nav-item.active { background: var(--accent-light); color: var(--accent); font-weight: 700; }
+html[data-theme="dark"] .nav-item.active { color: var(--accent-hover); }
+.nav-item.active::before {
+  content: ""; position: absolute; left: -18px; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 20px; border-radius: 0 3px 3px 0; background: var(--spark);
+}
+.nav-ic { display: inline-flex; align-items: center; justify-content: center; width: 22px; flex: none; }
+.nav-ic svg { transition: transform .16s ease; }
+.nav-item:hover .nav-ic svg { transform: translateY(-1px); }
+
+.theme-toggle {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface-muted); border: 1px solid var(--border);
+  color: var(--text); border-radius: var(--radius-sm);
+  padding: 10px 14px; font-size: 13.5px; font-weight: 500;
+  cursor: pointer; margin-top: 12px;
+  transition: border-color .16s ease, background .16s ease;
+}
+.theme-toggle:hover { border-color: var(--accent); background: var(--surface); }
+.theme-toggle-ic { display: inline-flex; align-items: center; justify-content: center; }
+
+/* ─── Palette (color theme) picker ────────────────────────────────────
+   Four small two-tone swatch buttons under the light/dark toggle, one
+   per accent palette (classic / voltage / hazard / copper) — each swatch's
+   background is a diagonal split of that palette's own accent + spark
+   colors, so it previews the actual theme rather than an arbitrary color.
+   Palette choice is a separate axis from light/dark mode; both persist
+   independently (see app.js). */
+
+.palette-picker { margin-top: 10px; padding: 0 2px; }
+.palette-picker-label {
+  font-size: 11px; font-weight: 600; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px;
+}
+.palette-swatches { display: flex; gap: 8px; }
+.palette-swatch {
+  width: 26px; height: 26px; border-radius: 50%; flex: none;
+  border: none; padding: 0; cursor: pointer;
+  box-shadow: 0 0 0 1.5px var(--border);
+  transition: box-shadow .15s ease, transform .15s ease;
+}
+.palette-swatch:hover { transform: translateY(-1px); }
+.palette-swatch.active {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--text);
+}
+.palette-swatch[data-swatch="classic"] { background: linear-gradient(135deg, #1a5276 50%, #f0b429 50%); }
+.palette-swatch[data-swatch="voltage"] { background: linear-gradient(135deg, #13294b 50%, #f5c518 50%); }
+.palette-swatch[data-swatch="hazard"]  { background: linear-gradient(135deg, #161616 50%, #ffcc00 50%); }
+.palette-swatch[data-swatch="copper"]  { background: linear-gradient(135deg, #a15c2e 50%, #e8a33d 50%); }
+
+/* ─── Main / topbar ───────────────────────────────────────────────────── */
+
+.main { flex: 1; min-width: 0; }
+
+.topbar {
+  height: 80px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 32px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky; top: 0; z-index: 5;
+}
+.topbar-title { font-family: var(--font-display); font-size: 25px; font-weight: 700; letter-spacing: .01em; }
+.topbar-actions { display: flex; gap: 10px; }
+
+.content { padding: 28px 32px 64px; max-width: 1180px; animation: contentIn .28s ease both; }
+
+@keyframes contentIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .content { animation: none; }
+}
+
+/* ─── Cards / layout primitives ───────────────────────────────────────── */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 22px;
+  transition: box-shadow .18s ease, border-color .18s ease;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card { padding: 20px 22px; }
+.stat-label { font-size: 12.5px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.stat-value {
+  font-family: var(--font-display); font-size: 34px; font-weight: 700; margin-top: 6px;
+  letter-spacing: .01em; font-variant-numeric: tabular-nums;
+}
+.stat-sub { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+
+.section-title {
+  font-family: var(--font-display); font-size: 19px; font-weight: 700; margin: 0 0 14px;
+  letter-spacing: .01em;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+/* ─── Buttons ──────────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  padding: 11px 20px; font-size: 14.5px; font-weight: 600;
+  cursor: pointer;
+  transition: transform .12s cubic-bezier(.2,.7,.3,1), filter .16s ease, background .16s ease,
+              border-color .16s ease, box-shadow .16s ease, color .16s ease;
+  white-space: nowrap;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn-primary { background: var(--accent); color: var(--on-accent); }
+.btn-primary:hover { background: var(--accent-hover); box-shadow: 0 4px 10px rgba(26,82,118,.22); }
+html[data-theme="dark"] .btn-primary:hover { box-shadow: 0 4px 12px rgba(0,0,0,.3); }
+.btn-secondary { background: var(--surface-muted); color: var(--text); border-color: var(--border); }
+.btn-secondary:hover { border-color: var(--accent); }
+.btn-success { background: var(--green); color: #fff; }
+.btn-success:hover { filter: brightness(1.06); box-shadow: 0 4px 10px rgba(30,142,90,.22); }
+.btn-ghost { background: transparent; color: var(--text-muted); border-color: var(--border); }
+.btn-ghost:hover { color: var(--text); border-color: var(--accent); }
+.btn-lg { padding: 14px 26px; font-size: 15.5px; }
+.btn-sm { padding: 7px 13px; font-size: 13px; }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+.btn[disabled]:hover { transform: none; box-shadow: none; }
+
+/* ─── Forms ────────────────────────────────────────────────────────────── */
+
+label { font-size: 13px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px; }
+
+input[type="text"], input[type="search"], input[type="number"], input[type="tel"], input[type="email"],
+input[type="month"], input[type="date"], textarea {
+  width: 100%;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 11px 14px;
+  font-size: 14.5px;
+  color: var(--text);
+  font-family: inherit;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+input:focus, textarea:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+input.field-error { border-color: var(--red); }
+
+/* Checkboxes — accent-colored and slightly larger than the browser default,
+   used by the bulk-select columns on the Invoices list. */
+input[type="checkbox"] {
+  width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer;
+}
+
+/* Month/date pickers ship with a native browser calendar icon that a
+   background-color/border rule can't reach — color-scheme (set above, per
+   theme) tells the browser to render that native part in a matching light
+   or dark palette instead of always defaulting to light-mode chrome that
+   looked out of place against the app's own dark theme. */
+input[type="month"], input[type="date"] { color-scheme: inherit; }
+
+.field { margin-bottom: 16px; }
+.field-row { display: flex; gap: 14px; }
+.field-row .field { flex: 1; }
+
+/* Month switcher (Monthly Log / Payroll Log) — a prev/next pair of round
+   icon buttons flanking a pill-shaped month input with its own leading
+   calendar icon, instead of the bare native <input type="month"> box.
+   The calendar-picker-indicator (Chromium/Safari only; Firefox just shows
+   its own native control here, which is fine) is recolored to the accent
+   color so it reads as part of the pill rather than stock browser chrome. */
+.month-switcher { display: flex; align-items: center; gap: 8px; }
+
+.month-nav {
+  width: 34px; height: 34px; flex: none; border-radius: 50%;
+  border: 1.5px solid var(--border); background: var(--surface);
+  color: var(--text-muted); display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: border-color .15s ease, color .15s ease, background .15s ease, transform .15s ease;
+}
+.month-nav:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); transform: translateY(-1px); }
+.month-nav:active { transform: translateY(0); }
+
+.month-switcher-input { position: relative; display: flex; align-items: center; }
+.month-switcher-input .month-ic {
+  position: absolute; left: 13px; color: var(--accent); pointer-events: none;
+}
+.month-switcher-input input[type="month"] {
+  width: auto; min-width: 168px; padding: 9px 14px 9px 38px;
+  border-radius: 999px; font-weight: 600; font-size: 14px; cursor: pointer;
+}
+input[type="month"]::-webkit-calendar-picker-indicator {
+  filter: var(--cal-icon-filter);
+  opacity: .75; cursor: pointer; border-radius: 6px; padding: 3px; margin-left: 6px;
+  transition: opacity .15s ease, background .15s ease, filter .2s ease;
+}
+input[type="month"]::-webkit-calendar-picker-indicator:hover { opacity: 1; background: var(--accent-light); }
+
+/* ─── Tables / lists ───────────────────────────────────────────────────── */
+
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--text-muted); font-weight: 600; padding: 10px 14px; border-bottom: 1px solid var(--border);
+}
+td { padding: 13px 14px; border-bottom: 1px solid var(--border); font-size: 14px; }
+tr:last-child td { border-bottom: none; }
+tr { transition: background .12s ease; }
+tr.row-link { cursor: pointer; }
+tr.row-link:hover { background: var(--surface-muted); }
+tbody tr:hover { background: var(--surface-muted); }
+
+.pill {
+  display: inline-block; padding: 3px 10px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+}
+.pill-green { background: var(--green-bg); color: var(--green); }
+.pill-blue { background: var(--accent-light); color: var(--accent); }
+
+.customer-row {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface-muted); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 8px;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.customer-row:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+.customer-name { font-weight: 600; font-size: 14.5px; }
+.customer-meta { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; white-space: pre-line; }
+
+.empty-state { text-align: center; padding: 48px 16px; color: var(--text-muted); }
+.empty-state .empty-ic { font-size: 34px; margin-bottom: 10px; }
+
+.bar-track { background: var(--surface-muted); border: 1px solid var(--border); border-radius: 6px; height: 10px; overflow: hidden; }
+.bar-fill { background: var(--accent); height: 100%; border-radius: 6px; min-width: 2px; }
+
+/* ─── Wizard (New Invoice) ────────────────────────────────────────────── */
+
+.wizard { max-width: 720px; margin: 0 auto; }
+.steps { display: flex; gap: 6px; margin-bottom: 26px; }
+.step-dot {
+  flex: 1; height: 4px; border-radius: 4px; background: var(--border);
+  transition: background .25s ease;
+}
+.step-dot.done, .step-dot.current { background: var(--accent); }
+
+.line-item-row {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface-muted); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 8px;
+}
+.line-item-row .idx { width: 20px; color: var(--text-muted); font-size: 13px; flex: none; }
+.line-item-row .detail { flex: 1; }
+.line-item-row .price-wrap { display: flex; align-items: center; gap: 4px; width: 130px; flex: none; }
+.line-item-row .remove-row {
+  background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; flex: none;
+}
+.line-item-row .remove-row:hover { color: var(--red); }
+
+.summary-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14.5px; }
+.summary-total { display: flex; justify-content: space-between; padding-top: 12px; margin-top: 8px; border-top: 1px solid var(--border); font-weight: 700; font-size: 16px; }
+
+.wizard-actions { display: flex; justify-content: space-between; margin-top: 22px; }
+.wizard-actions .right { display: flex; gap: 10px; }
+
+.status-banner {
+  border-radius: var(--radius-sm); padding: 11px 14px; font-size: 13.5px; margin-bottom: 16px; display: none;
+}
+.status-banner.show { display: block; animation: bannerIn .2s ease both; }
+.status-banner.ok { background: var(--green-bg); color: var(--green); }
+.status-banner.err { background: var(--red-bg); color: var(--red); }
+
+@keyframes bannerIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Toasts (fixed bottom-right status-banners used across list pages) get a
+   slide-in from the edge instead of an instant pop. */
+#toast.status-banner.show { animation: toastIn .22s cubic-bezier(.2,.8,.3,1) both; }
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(10px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.done-icon { font-size: 44px; text-align: center; margin-bottom: 4px; }
+.action-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px 0; }
+
+.type-toggle { display: flex; gap: 6px; }
+.type-btn {
+  flex: 1; padding: 9px 14px; border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border); background: var(--surface);
+  color: var(--text-muted); font-weight: 600; font-size: 13.5px;
+  cursor: pointer; transition: background .12s ease, color .12s ease, border-color .12s ease;
+}
+.type-btn:hover { border-color: var(--accent); }
+.type-btn.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.type-btn[disabled] { opacity: .55; cursor: not-allowed; }
+
+.coming-soon-badge {
+  display: inline-block; background: var(--accent-light); color: var(--accent);
+  font-size: 12px; font-weight: 700; padding: 4px 11px; border-radius: 999px; margin-bottom: 14px;
+}
+
+/* ─── Modal (Mark Paid) ────────────────────────────────────────────────── */
+
+.modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(16,24,40,.45);
+  align-items: center; justify-content: center; z-index: 50; padding: 20px;
+}
+.modal-overlay.show { display: flex; animation: overlayIn .18s ease both; }
+.modal-card {
+  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-md);
+  padding: 24px; width: 100%; max-width: 380px;
+}
+.modal-overlay.show .modal-card { animation: modalIn .2s cubic-bezier(.2,.8,.3,1) both; }
+
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay.show, .modal-overlay.show .modal-card, .status-banner.show, #toast.status-banner.show {
+    animation: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .sidebar { display: none; }
+  .content { padding: 20px; }
+  .action-grid { grid-template-columns: 1fr; }
+}

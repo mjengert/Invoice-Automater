@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}Invoices — Funky's Electrical{% endblock %}
+{% block page_title %}Invoices{% endblock %}
+{% block page_actions %}
+  <a href="{{ url_for('document_new', type='invoice') }}" class="btn btn-primary">+ New Invoice</a>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:20px;">
+  <form method="get" action="{{ url_for('invoices_list') }}" style="display:flex; gap:10px;">
+    <input type="search" name="q" value="{{ q }}" placeholder="Search by customer, job, or invoice #…" style="max-width:420px;">
+    <button class="btn btn-secondary" type="submit">Search</button>
+    {% if q %}<a class="btn btn-ghost" href="{{ url_for('invoices_list') }}">Clear</a>{% endif %}
+  </form>
+</div>
+
+<div class="card" id="bulkBar" style="display:none; margin-bottom:14px; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+  <div><span id="bulkCount"></span> selected — <span id="bulkTotal"></span></div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <button class="btn btn-ghost btn-sm" type="button" onclick="clearSelection()">Clear</button>
+    <button class="btn btn-secondary btn-sm" type="button" onclick="bulkEmailSelected()">Email Selected</button>
+    <button class="btn btn-primary btn-sm" type="button" onclick="bulkMarkPaid()">Mark Selected Paid</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="section-title">
+    {% if q %}Results for “{{ q }}”{% else %}All invoices{% endif %}
+    <span style="color:var(--text-muted); font-weight:500; font-size:13px;">{{ rows|length }} shown</span>
+  </div>
+
+  {% if rows %}
+  <table>
+    <thead>
+      <tr>
+        <th style="width:28px;"><input type="checkbox" id="selectAllCk" onchange="toggleSelectAll(this)"></th>
+        <th>#</th><th>Customer</th><th>Job</th><th>Date</th><th style="text-align:right">Total</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>
+          <input type="checkbox" class="row-ck"
+                 data-number="{{ r.number }}" data-customer="{{ r.customer|e }}"
+                 data-total="{{ r.total or 0 }}" data-paid="{{ 1 if r.paid else 0 }}"
+                 onchange="updateBulkBar()">
+        </td>
+        <td>{{ r.number }}</td>
+        <td>{{ r.customer }}</td>
+        <td>{{ r.job }}</td>
+        <td>{{ r.day }}</td>
+        <td style="text-align:right">{{ r.amount_display or ("$" + "{:,.2f}".format(r.total or 0)) }}</td>
+        <td style="text-align:right; white-space:nowrap;">
+          {% if r.paid %}<span class="pill pill-green">PAID</span>{% endif %}
+          <button class="btn btn-ghost btn-sm" onclick="openInvoice('{{ r.customer|e }}', {{ r.number }})">Open</button>
+          <a class="btn btn-ghost btn-sm" href="{{ url_for('document_edit', number=r.number) }}">Edit</a>
+          {% if not r.paid %}
+          <button class="btn btn-secondary btn-sm" onclick="markPaid('{{ r.customer|e }}', {{ r.number }})">Mark Paid</button>
+          {% else %}
+          <button class="btn btn-ghost btn-sm" onclick="unmarkPaid({{ r.number }})">Unmark Paid</button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-ic">🔍</div>
+    No invoices match that search.
+  </div>
+  {% endif %}
+</div>
+
+<div id="toast" class="status-banner" style="position:fixed; bottom:24px; right:24px; max-width:360px;"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const BULK_EMAIL_TO = {{ bulk_email_to|tojson }};
+
+function showToast(msg, ok) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'status-banner show ' + (ok ? 'ok' : 'err');
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+async function openInvoice(customer, number) {
+  try {
+    const data = await apiFetch('/api/invoices/action', {
+      method: 'POST',
+      body: JSON.stringify({ customer, number, action: 'open' })
+    });
+    showToast(data.message, true);
+  } catch (e) {
+    showToast(e.message, false);
+  }
+}
+function markPaid(customer, number) {
+  openMarkPaidModal(customer, number, (err, data) => {
+    if (err) { showToast(err.message, false); return; }
+    showToast('Marked paid — added to the ' + data.month_label + ' log.', true);
+    setTimeout(() => window.location.reload(), 900);
+  });
+}
+async function unmarkPaid(number) {
+  if (!confirm('Unmark invoice #' + number + ' as paid? If it has a Monthly Log entry, that entry is removed too.')) return;
+  try {
+    await apiFetch('/api/invoices/' + number + '/unmark-paid', { method: 'POST' });
+    showToast('Invoice #' + number + ' unmarked.', true);
+    setTimeout(() => window.location.reload(), 900);
+  } catch (e) {
+    showToast(e.message, false);
+  }
+}
+
+// ── Bulk select ───────────────────────────────────────────────────────────
+function getRowCheckboxes() {
+  return Array.from(document.querySelectorAll('.row-ck'));
+}
+function toggleSelectAll(cb) {
+  getRowCheckboxes().forEach(el => { el.checked = cb.checked; });
+  updateBulkBar();
+}
+function updateBulkBar() {
+  const all = getRowCheckboxes();
+  const checked = all.filter(el => el.checked);
+  const bar = document.getElementById('bulkBar');
+  const selectAllCk = document.getElementById('selectAllCk');
+  if (selectAllCk) {
+    selectAllCk.checked = all.length > 0 && checked.length === all.length;
+    selectAllCk.indeterminate = checked.length > 0 && checked.length < all.length;
+  }
+  if (!checked.length) { bar.style.display = 'none'; return; }
+  const total = checked.reduce((s, el) => s + parseFloat(el.dataset.total || '0'), 0);
+  document.getElementById('bulkCount').textContent = checked.length;
+  document.getElementById('bulkTotal').textContent = money(total);
+  bar.style.display = 'flex';
+}
+function clearSelection() {
+  getRowCheckboxes().forEach(el => { el.checked = false; });
+  const selectAllCk = document.getElementById('selectAllCk');
+  if (selectAllCk) { selectAllCk.checked = false; selectAllCk.indeterminate = false; }
+  updateBulkBar();
+}
+
+// ── Bulk mark paid ────────────────────────────────────────────────────────
+function bulkMarkPaid() {
+  const checked = getRowCheckboxes().filter(el => el.checked);
+  if (!checked.length) return;
+  const items = checked.map(el => ({
+    customer: el.dataset.customer,
+    number: parseInt(el.dataset.number, 10),
+    total: parseFloat(el.dataset.total || '0'),
+  }));
+  openBulkMarkPaidModal(items, (err, results) => {
+    if (err) { showToast(err.message, false); return; }
+    const okCount = results.ok.length;
+    const failCount = results.failed.length;
+    if (failCount === 0) {
+      showToast('Marked ' + okCount + ' invoice' + (okCount === 1 ? '' : 's') + ' paid.', true);
+    } else {
+      showToast('Marked ' + okCount + ' paid, ' + failCount + ' couldn\'t be (already paid, most likely).', okCount > 0);
+      console.warn('Bulk mark-paid failures:', results.failed);
+    }
+    setTimeout(() => window.location.reload(), 1100);
+  });
+}
+
+// ── Bulk email ────────────────────────────────────────────────────────────
+function bulkEmailSelected() {
+  const checked = getRowCheckboxes().filter(el => el.checked);
+  if (!checked.length) return;
+  const toAddress = BULK_EMAIL_TO;
+  if (!toAddress) { showToast('Set a bulk email address on the Settings page first.', false); return; }
+  const items = checked.map(el => ({
+    customer: el.dataset.customer,
+    number: parseInt(el.dataset.number, 10),
+  }));
+  openBulkEmailModal(items, toAddress, (err, data) => {
+    if (err) { showToast(err.message, false); return; }
+    const sentCount = data.sent.length;
+    const failCount = data.failed.length;
+    if (failCount === 0) {
+      showToast('Sent ' + sentCount + ' invoice' + (sentCount === 1 ? '' : 's') + ' to ' + data.to + '.', true);
+    } else {
+      showToast('Sent ' + sentCount + ', ' + failCount + ' failed — see console.', sentCount > 0);
+      console.warn('Bulk email failures:', data.failed);
+    }
+  });
+}
+</script>
+{% endblock %}

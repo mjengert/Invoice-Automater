@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Worker' if mode == 'edit' else 'New Worker' }} — Funky's Electrical{% endblock %}
+{% block page_title %}{{ 'Edit Worker' if mode == 'edit' else 'New Worker' }}{% endblock %}
+{% block page_actions %}
+  <a href="{{ url_for('payroll_workers') }}" class="btn btn-ghost">← All workers</a>
+{% endblock %}
+
+{% block content %}
+<div class="wizard" style="max-width:560px;">
+  <div id="banner" class="status-banner"></div>
+
+  <div class="card">
+    <div class="field">
+      <label>Name</label>
+      <input type="text" id="wfName" placeholder="First Last" value="{{ worker.name if worker else '' }}">
+    </div>
+    <p style="color:var(--text-muted); font-size:12.5px; margin-top:-6px;">
+      Just a name for the "Worker" autofill on the Payroll Log — the Workers' Comp class code (Wiring or Machinery) is picked per entry, not stored here.
+    </p>
+
+    <div class="wizard-actions">
+      <a href="{{ url_for('payroll_workers') }}" class="btn btn-ghost">Cancel</a>
+      <div class="right">
+        <button class="btn btn-primary" id="saveBtn" type="button">{{ 'Save Changes' if mode == 'edit' else 'Add Worker' }} ✓</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const MODE = {{ mode|tojson }};
+const ORIGINAL_NAME = {{ (worker.name if worker else "")|tojson }};
+
+function showBanner(msg, ok) {
+  const b = document.getElementById("banner");
+  b.textContent = msg;
+  b.className = "status-banner show " + (ok ? "ok" : "err");
+}
+
+document.getElementById("saveBtn").addEventListener("click", async () => {
+  const name = document.getElementById("wfName").value.trim();
+
+  if (!name) { showBanner("Name is required.", false); return; }
+
+  const btn = document.getElementById("saveBtn");
+  btn.disabled = true;
+  try {
+    const url = MODE === "edit" ? "/api/payroll/workers/" + encodeURIComponent(ORIGINAL_NAME) : "/api/payroll/workers";
+    await apiFetch(url, {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    });
+    window.location.href = "{{ url_for('payroll_workers') }}";
+  } catch (e) {
+    showBanner(e.message, false);
+    btn.disabled = false;
+  }
+});
+</script>
+{% endblock %}

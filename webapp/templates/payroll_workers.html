@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Workers — Funky's Electrical{% endblock %}
+{% block page_title %}Workers{% endblock %}
+{% block page_actions %}
+  <a href="{{ url_for('payroll_log') }}" class="btn btn-ghost">← Payroll Log</a>
+  <a href="{{ url_for('worker_new_form') }}" class="btn btn-primary">+ New Worker</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="section-title">
+    Worker profiles
+    <span style="color:var(--text-muted); font-weight:500; font-size:13px;">{{ workers|length }} on file</span>
+  </div>
+  <p style="color:var(--text-muted); font-size:13px; margin-top:-6px; margin-bottom:16px;">
+    Just names, for the "Worker" autofill on the Payroll Log — Workers' Comp class codes are fixed (Wiring/Machinery) and picked per entry instead.
+  </p>
+  {% if workers %}
+  <table>
+    <thead>
+      <tr><th>Name</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for w in workers %}
+      <tr class="row-link" onclick="window.location.href='{{ url_for('worker_edit_form', name=w.name) }}'">
+        <td>{{ w.name }}</td>
+        <td style="text-align:right">
+          <a class="btn btn-ghost btn-sm" href="{{ url_for('worker_edit_form', name=w.name) }}" onclick="event.stopPropagation()">Edit</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-ic">💵</div>
+    No workers yet — add one to start logging payroll.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
